@@ -12,8 +12,8 @@ open import Data.Empty
 open import Data.Product
 open import Data.Sum
 open import Data.List
-open import Data.List.All
-open import Data.List.Any
+-- open import Data.List.All
+-- open import Data.List.Any
 open import Function
 -- open import Data.String
 
@@ -51,7 +51,8 @@ data Instruction : Set where
 
 ⟦_⟧i : Instruction → State → State
 ⟦ SKIP ⟧i st = st
-⟦ Assignment var value ⟧i st x = if ⌊ x Data.Nat.≟ var ⌋ then ⟦ value ⟧e st else st x
+⟦ Assignment var value ⟧i st =
+  λ x → if ⌊ x Data.Nat.≟ var ⌋ then ⟦ value ⟧e st else st x
 
 data Predicate : Set where
   TRUE : Predicate
@@ -66,57 +67,54 @@ ConditionalInstruction = (Predicate × Instruction)
 ParallelProgram : Set
 ParallelProgram = List ConditionalInstruction
 
--- predicateWithState
+Statementt : Set₁
+Statementt = State → Set
 
-⟦_⟧ : Predicate -> State -> Set
-_⋈_ : State -> Predicate -> Set
-
-s ⋈ p = ⟦ p ⟧ s
-
-⟦ TRUE ⟧ state = ⊤
-⟦ FALSE ⟧ state = ⊥
-⟦ NOT p ⟧ state = ¬(state ⋈ p)
-⟦ AND p₁ p₂ ⟧ state = ((state ⋈ p₁) × (state ⋈ p₂))
-⟦ OR  p₁ p₂ ⟧ state = ((state ⋈ p₁) ⊎ (state ⋈ p₂))
+⟦_⟧s : Predicate -> Statementt
+⟦ TRUE ⟧s state = ⊤
+⟦ FALSE ⟧s state = ⊥
+⟦ NOT p ⟧s state = ¬(⟦ p ⟧s state)
+⟦ AND p₁ p₂ ⟧s state = ((⟦ p₁ ⟧s state) × (⟦ p₂ ⟧s state))
+⟦ OR  p₁ p₂ ⟧s state = ((⟦ p₁ ⟧s state) ⊎ (⟦ p₂ ⟧s state))
 
 Condition : Set
 Condition = State → Bool
 
-⟦_⟧b : Predicate → Condition
-⟦ TRUE ⟧b = const true
-⟦ FALSE ⟧b = const false
-⟦ NOT p ⟧b state = not (⟦ p ⟧b state)
-⟦ AND p₁ p₂ ⟧b state = (⟦ p₁ ⟧b state) ∧ (⟦ p₂ ⟧b state)
-⟦ OR p₁ p₂ ⟧b state = (⟦ p₁ ⟧b state) ∨ (⟦ p₂ ⟧b state)
-{-
-fromBool : Bool → Set
-fromBool false = ⊥
-fromBool true = ⊤
+⟦_⟧c : Predicate → Condition
+⟦ TRUE ⟧c = const true
+⟦ FALSE ⟧c = const false
+⟦ NOT p ⟧c state = not (⟦ p ⟧c state)
+⟦ AND p₁ p₂ ⟧c state = (⟦ p₁ ⟧c state) ∧ (⟦ p₂ ⟧c state)
+⟦ OR p₁ p₂ ⟧c state = (⟦ p₁ ⟧c state) ∨ (⟦ p₂ ⟧c state)
 
-⟦_⟧ : Predicate → State → Set
-⟦ p ⟧ st = fromBool (⟦ p ⟧b st)
-
-fromBoolnot : (b : Bool) → fromBool (not b) ↔ fromBool b → ⊥
-fromBoolnot false = {!!}
-fromBoolnot true = {!!}
-
-f : (p : Predicate)(s : State) → fromBool (⟦ p ⟧b s) ≡ ⟦ p ⟧ s
-f TRUE st = refl
-f FALSE st = refl
-f (NOT p) st rewrite f p st = {!!}
-f (AND p p₁) st = {!!}
-f (OR p p₁) st = {!!}
--}
+-- statementToCondition : {p : Predicate} → {st : State} → ⟦ p ⟧s st → T (⟦ p ⟧c st)
+-- statementToCondition {TRUE} ps_st = tt
+-- statementToCondition {FALSE} ()
+-- statementToCondition {NOT p} {st} ps_st = {! statementToCondition {p} {st}  !}
+-- statementToCondition {AND p p₁} ps_st = {!   !}
+-- statementToCondition {OR p p₁} ps_st = {!   !}
+--
+-- conditionToStatement : {p : Predicate} → {st : State} → T (⟦ p ⟧c st) → ⟦ p ⟧s st
+-- conditionToStatement {TRUE} {st} pc_st = pc_st
+-- conditionToStatement {FALSE} {st} pc_st = pc_st
+-- conditionToStatement {NOT p} {st} pc_st with (⟦ p ⟧c st)
+-- conditionToStatement {NOT p} {st} pc_st | false = {! conditionToStatement {p} {st}  !}
+-- conditionToStatement {AND p p₁} {st} pc_st = {!   !}
+-- conditionToStatement {OR p p₁} {st} pc_st = {!   !}
 
 ⟦_⟧ci : ConditionalInstruction → State → State
-⟦ (p , i) ⟧ci st  with ⟦ p ⟧b st
-⟦ (p , i) ⟧ci st | false = st
-⟦ (p , i) ⟧ci st | true = ⟦ i ⟧i st
+⟦ (p , i) ⟧ci st with ⟦ p ⟧c st
+... | false = st
+... | true = ⟦ i ⟧i st
 
--- test:
+-- _⋈_ : State → Predicate → Set
+-- st ⋈ p = T (⟦ p ⟧c st)
 
-testInstruction : ConditionalInstruction
-testInstruction = (TRUE , SKIP)
+_⋈_ : State -> Predicate -> Set
+st ⋈ p = ⟦ p ⟧s st
 
-testPrf : (⟦ Assignment 1 (Const 5) ⟧i emptyState) 1 ≡ 5
-testPrf = refl
+_⊢_ : State → Predicate → Bool
+st ⊢ p = ⟦ p ⟧c st
+
+_⊨_ : State → Condition → Bool
+st ⊨ c = c st
