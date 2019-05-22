@@ -1,4 +1,4 @@
-module ORSI.Simple where
+module Simple where
 
 -- Imports
 
@@ -39,9 +39,9 @@ data Expression : Set where
   Plus : Expression -> Expression -> Expression
 
 ⟦_⟧e : Expression -> State → ℕ
-⟦ Const v ⟧e st = v
-⟦ Var x ⟧e st = st x
-⟦ Plus e1 e2 ⟧e st = ⟦ e1 ⟧e st + ⟦ e2 ⟧e st
+⟦ Const v ⟧e state = v
+⟦ Var x ⟧e state = state x
+⟦ Plus e e₁ ⟧e state = ⟦ e ⟧e state + ⟦ e₁ ⟧e state
 
 -- Instruction, execute
 
@@ -67,15 +67,15 @@ ConditionalInstruction = (Predicate × Instruction)
 ParallelProgram : Set
 ParallelProgram = List ConditionalInstruction
 
-Statementt : Set₁
-Statementt = State → Set
+Statement : Set₁
+Statement = State → Set
 
-⟦_⟧s : Predicate -> Statementt
+⟦_⟧s : Predicate -> Statement
 ⟦ TRUE ⟧s state = ⊤
 ⟦ FALSE ⟧s state = ⊥
-⟦ NOT p ⟧s state = ¬(⟦ p ⟧s state)
-⟦ AND p₁ p₂ ⟧s state = ((⟦ p₁ ⟧s state) × (⟦ p₂ ⟧s state))
-⟦ OR  p₁ p₂ ⟧s state = ((⟦ p₁ ⟧s state) ⊎ (⟦ p₂ ⟧s state))
+⟦ NOT p ⟧s state = ¬ (⟦ p ⟧s state)
+⟦ AND p p₁ ⟧s state = ((⟦ p ⟧s state) × (⟦ p₁ ⟧s state))
+⟦ OR p p₁ ⟧s state = ((⟦ p ⟧s state) ⊎ (⟦ p₁ ⟧s state))
 
 Condition : Set
 Condition = State → Bool
@@ -84,28 +84,38 @@ Condition = State → Bool
 ⟦ TRUE ⟧c = const true
 ⟦ FALSE ⟧c = const false
 ⟦ NOT p ⟧c state = not (⟦ p ⟧c state)
-⟦ AND p₁ p₂ ⟧c state = (⟦ p₁ ⟧c state) ∧ (⟦ p₂ ⟧c state)
-⟦ OR p₁ p₂ ⟧c state = (⟦ p₁ ⟧c state) ∨ (⟦ p₂ ⟧c state)
+⟦ AND p p₁ ⟧c state = (⟦ p ⟧c state) ∧ (⟦ p₁ ⟧c state)
+⟦ OR p p₁ ⟧c state = (⟦ p ⟧c state) ∨ (⟦ p₁ ⟧c state)
 
-T∧ : {a b : Bool} → T a × T b → T (a ∧ b)
-T∧ {false} {false} = proj₁
-T∧ {false} {true} = proj₁
-T∧ {true} {false} = proj₂
-T∧ {true} {true} = λ _ → tt
+--
 
-T∨ : {a b : Bool} → T a ⊎ T b → T (a ∨ b)
-T∨ {false} {false} = [_,_] (λ ()) (λ ())
-T∨ {false} {true} = λ _ → tt
-T∨ {true} {false} = λ _ → tt
-T∨ {true} {true} = λ _ → tt
+STC_AND : {a b : Bool} → T a × T b → T (a ∧ b)
+STC_AND {false} = proj₁
+STC_AND {true} = proj₂
 
-T¬ : {a : Bool} → ¬ (T a) → T (not a)
-T¬ {false} = λ _ → tt
-T¬ {true} f = f tt
+STC_OR : {a b : Bool} → T a ⊎ T b → T (a ∨ b)
+STC_OR {false} {false} (inj₁ ())
+STC_OR {false} {false} (inj₂ ())
+STC_OR {false} {true} = const tt
+STC_OR {true} = const tt
 
-¬T : {a : Bool} → T (not a) → ¬ (T a)
-¬T {false} = λ _ ()
-¬T {true} = λ ()
+STC_NOT : {a : Bool} → ¬ (T a) → T (not a)
+STC_NOT {false} = const tt
+STC_NOT {true} ¬tt = ¬tt tt
+
+CTS_AND : {a b : Bool} → T (a ∧ b) → T a × T b
+CTS_AND {false} ()
+CTS_AND {true} {false} ()
+CTS_AND {true} {true} tt = (tt , tt)
+
+CTS_OR : {a b : Bool} → T (a ∨ b) → T a ⊎ T b
+CTS_OR {false} {false} ()
+CTS_OR {false} {true} tt = inj₂ tt
+CTS_OR {true} tt = inj₁ tt
+
+CTS_NOT : {a : Bool} → T (not a) → ¬ (T a)
+CTS_NOT {false} = const id
+CTS_NOT {true} ()
 
 -- a ⊂ b, a' ⊂ b', b→a' ⊂ a→b'
 -- ℤ → B ⊂ ℕ → B
@@ -116,30 +126,36 @@ T¬ {true} f = f tt
 -- λ X → (X → ℕ)
 -- map : (f : A → B) → (B → ℕ) → (A → ℕ)
 
-
 statementToCondition : {p : Predicate} → {st : State} → ⟦ p ⟧s st → T (⟦ p ⟧c st)
 conditionToStatement : {p : Predicate} → {st : State} → T (⟦ p ⟧c st) → ⟦ p ⟧s st
 
 statementToCondition {TRUE} ps_st = tt
 statementToCondition {FALSE} ()
-statementToCondition {NOT p} {st} ps_st = T¬ λ w → ps_st (conditionToStatement w)
-statementToCondition {AND p p₁} (ps_st , p₁s_st) = T∧ (statementToCondition {p} ps_st , statementToCondition {p₁} p₁s_st) 
-statementToCondition {OR p p₁} (inj₁ x) = T∨ (inj₁ (statementToCondition x))
-statementToCondition {OR p p₁} (inj₂ y) = T∨ (inj₂ (statementToCondition y))
+statementToCondition {NOT p} {st} ¬ps_st = STC_NOT (λ T_p₁c_st → ¬ps_st (conditionToStatement T_p₁c_st))
+statementToCondition {AND p p₁} (ps_st , p₁s_st) =
+  STC_AND (statementToCondition {p} ps_st , statementToCondition {p₁} p₁s_st)
+statementToCondition {OR p p₁} (inj₁ ps_st) = STC_OR (inj₁ (statementToCondition ps_st))
+statementToCondition {OR p p₁} (inj₂ p₁s_st) = STC_OR (inj₂ (statementToCondition p₁s_st))
 
-conditionToStatement {TRUE} {st} pc_st = pc_st
-conditionToStatement {FALSE} {st} pc_st = pc_st
-conditionToStatement {NOT p} {st} pc_st with (⟦ p ⟧c st)
-conditionToStatement {NOT p} {st} pc_st | false = {! conditionToStatement {p} {st}  !}
-conditionToStatement {AND p p₁} {st} pc_st = {!   !}
-conditionToStatement {OR p p₁} {st} pc_st = {!   !}
+conditionToStatement {TRUE} {st} tt = tt
+conditionToStatement {FALSE} {st} ()
+conditionToStatement {NOT p} {st} T_not_pc_st ps_st = (CTS_NOT T_not_pc_st) (statementToCondition ps_st)
+conditionToStatement {AND p p₁} {st} pc_st∧p₁c_st with (CTS_AND {⟦ p ⟧c st} pc_st∧p₁c_st)
+conditionToStatement {AND p p₁} {st} pc_st∧p₁c_st | (T_pc_st , T_p₁c_st) =
+  (conditionToStatement T_pc_st , conditionToStatement T_p₁c_st)
+conditionToStatement {OR p p₁} {st} pc_st∧p₁c_st with (CTS_OR {⟦ p ⟧c st} pc_st∧p₁c_st)
+conditionToStatement {OR p p₁} {st} pc_st∧p₁c_st | inj₁ T_pc_st = inj₁ (conditionToStatement T_pc_st)
+conditionToStatement {OR p p₁} {st} pc_st∧p₁c_st | inj₂ T_p₁c_st = inj₂ (conditionToStatement T_p₁c_st)
 
-predicateDecidability : {p : Predicate} → {st : State} → ((¬ ⟦ p ⟧s st) ⊎ (⟦ p ⟧s st))
-predicateDecidability {p} {st} with ⟦ p ⟧c st
-  where
-    sajt = statementToCondition {p} {st} 
-predicateDecidability {p} {st} | false = inj₁ λ ps_st → {! statementToCondition {p} {st} !}
-predicateDecidability {p} {st} | true = inj₂ {!!}
+conditionDecidability : {p : Predicate} → {st : State} → T (not (⟦ p ⟧c st) ∨ ⟦ p ⟧c st)
+conditionDecidability {p} {st} with (⟦ p ⟧c st)
+conditionDecidability {p} {st} | false = tt
+conditionDecidability {p} {st} | true = tt
+
+statementDecidability : {p : Predicate} → {st : State} → ((¬ ⟦ p ⟧s st) ⊎ (⟦ p ⟧s st))
+statementDecidability {p} {st} = conditionToStatement (conditionDecidability {p})
+
+--
 
 ⟦_⟧ci : ConditionalInstruction → State → State
 ⟦ (p , i) ⟧ci st with ⟦ p ⟧c st
@@ -158,12 +174,12 @@ st ⊢ p = ⟦ p ⟧c st
 _⊨_ : State → Condition → Bool
 st ⊨ c = c st
 
-f g : Bool → Set
-f x = if x then ℕ else ℕ
-g x = if x then ℕ else ℕ
-
-fg : f ≡ g
-fg = refl
+-- f g : Bool → Set
+-- f x = if x then ℕ else ℕ
+-- g x = if x then ℕ else ℕ
+--
+-- fg : f ≡ g
+-- fg = refl
 
 {-
 if : (C : Bool → Set) → C true → C false → (b : Bool) → C b
