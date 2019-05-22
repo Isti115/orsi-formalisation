@@ -38,10 +38,10 @@ data Expression : Set where
   Var : Vars -> Expression
   Plus : Expression -> Expression -> Expression
 
-evaluate : State -> Expression -> ℕ
-evaluate state (Const v) = v
-evaluate state (Var x) = state x
-evaluate state (Plus e1 e2) = (evaluate state e1) + (evaluate state e2)
+⟦_⟧e : Expression -> State → ℕ
+⟦ Const v ⟧e st = v
+⟦ Var x ⟧e st = st x
+⟦ Plus e1 e2 ⟧e st = ⟦ e1 ⟧e st + ⟦ e2 ⟧e st
 
 -- Instruction, execute
 
@@ -49,104 +49,74 @@ data Instruction : Set where
   SKIP : Instruction
   Assignment : Vars → Expression → Instruction
 
-execute : State → Instruction → State
-execute state SKIP = state
--- execute state (Assignment var value) x with (x Data.Nat.≟ var)
--- ... | (yes _) = (evaluate state value)
--- ... | (no _) = state x
-execute state (Assignment var value) =
-  λ x → if ⌊ x Data.Nat.≟ var ⌋ then (evaluate state value) else state x
--- -- execute state (Assignment var value) = λ x → state x
-
---
-
-ConditionalInstruction : Set
-conditionalExecute : State -> ConditionalInstruction -> State
-
-ParallelProgram : Set
-ParallelProgram = List ConditionalInstruction
+⟦_⟧i : Instruction → State → State
+⟦ SKIP ⟧i st = st
+⟦ Assignment var value ⟧i st x = if ⌊ x Data.Nat.≟ var ⌋ then ⟦ value ⟧e st else st x
 
 data Predicate : Set where
   TRUE : Predicate
   FALSE : Predicate
-  --
-  WP : (Instruction × Predicate) -> Predicate
-  CWP : (ConditionalInstruction × Predicate) -> Predicate
-  PCWP : (ParallelProgram × Predicate) -> Predicate
-  --
   NOT : Predicate -> Predicate
   AND : Predicate -> Predicate -> Predicate
   OR : Predicate -> Predicate -> Predicate
 
--- syntax
--- _∧_ = AND
+ConditionalInstruction : Set
+ConditionalInstruction = (Predicate × Instruction)
+
+ParallelProgram : Set
+ParallelProgram = List ConditionalInstruction
 
 -- predicateWithState
 
-predicateWithState : Predicate -> State -> Set
-
--- pws = predicateWithState
-
+⟦_⟧ : Predicate -> State -> Set
 _⋈_ : State -> Predicate -> Set
-_⋈_ s p = predicateWithState p s
 
-predicateWithState TRUE state = ⊤
-predicateWithState FALSE state = ⊥
---
-predicateWithState (WP (instruction , predicate)) state =
-  (execute state instruction) ⋈ predicate
-  -- predicateWithState predicate (execute state instruction)
-predicateWithState (CWP (conditionalInstruction , predicate)) state =
-  (conditionalExecute state conditionalInstruction) ⋈ predicate
-  -- predicateWithState predicate (conditionalExecute state conditionalInstruction)
-predicateWithState (PCWP (parallelProgram , predicate)) state =
-  All (λ ci -> state ⋈ (CWP (ci , predicate))) parallelProgram
---
-predicateWithState (NOT p) state = ¬(state ⋈ p)
-predicateWithState (AND p₁ p₂) state = ((state ⋈ p₁) × (state ⋈ p₂))
-predicateWithState (OR p₁ p₂) state = ((state ⋈ p₁) ⊎ (state ⋈ p₂))
--- predicateWithState (NOT p) state = ¬(predicateWithState p state)
--- predicateWithState (AND p₁ p₂) state = ((predicateWithState p₁ state) × (predicateWithState p₂ state))
--- predicateWithState (OR p₁ p₂) state = ((predicateWithState p₁ state) ⊎ (predicateWithState p₂ state))
+s ⋈ p = ⟦ p ⟧ s
 
---
+⟦ TRUE ⟧ state = ⊤
+⟦ FALSE ⟧ state = ⊥
+⟦ NOT p ⟧ state = ¬(state ⋈ p)
+⟦ AND p₁ p₂ ⟧ state = ((state ⋈ p₁) × (state ⋈ p₂))
+⟦ OR  p₁ p₂ ⟧ state = ((state ⋈ p₁) ⊎ (state ⋈ p₂))
 
 Condition : Set
 Condition = State → Bool
 
-predicateToCondition : Predicate → Condition
-predicateToCondition TRUE = const true
-predicateToCondition FALSE = const false
---
-predicateToCondition (WP (instruction , predicate)) state =
-  (predicateToCondition predicate) (execute state instruction)
-predicateToCondition (CWP (conditionalInstruction , predicate)) state =
-  (predicateToCondition predicate) (conditionalExecute state conditionalInstruction)
-predicateToCondition (PCWP (parallelProgram , predicate)) state =
-  Data.List.all (λ ci → predicateToCondition (CWP (ci , predicate)) state) parallelProgram
---
-predicateToCondition (NOT p) =
-  λ state → not (predicateToCondition p state)
-predicateToCondition (AND p₁ p₂) =
-  λ state → (predicateToCondition p₁ state) ∧ (predicateToCondition p₂ state)
-predicateToCondition (OR p₁ p₂) =
-  λ state → (predicateToCondition p₁ state) ∨ (predicateToCondition p₂ state)
+⟦_⟧b : Predicate → Condition
+⟦ TRUE ⟧b = const true
+⟦ FALSE ⟧b = const false
+⟦ NOT p ⟧b state = not (⟦ p ⟧b state)
+⟦ AND p₁ p₂ ⟧b state = (⟦ p₁ ⟧b state) ∧ (⟦ p₂ ⟧b state)
+⟦ OR p₁ p₂ ⟧b state = (⟦ p₁ ⟧b state) ∨ (⟦ p₂ ⟧b state)
+{-
+fromBool : Bool → Set
+fromBool false = ⊥
+fromBool true = ⊤
 
-ConditionalInstruction = (Predicate × Instruction)
+⟦_⟧ : Predicate → State → Set
+⟦ p ⟧ st = fromBool (⟦ p ⟧b st)
 
-{-# TERMINATING #-}
-conditionalExecute state (predicate , instruction) = check (condition state)
-  where
-    check : Bool -> State
-    check true = execute state instruction
-    check false = state
+fromBoolnot : (b : Bool) → fromBool (not b) ↔ fromBool b → ⊥
+fromBoolnot false = {!!}
+fromBoolnot true = {!!}
 
-    condition =  predicateToCondition predicate
+f : (p : Predicate)(s : State) → fromBool (⟦ p ⟧b s) ≡ ⟦ p ⟧ s
+f TRUE st = refl
+f FALSE st = refl
+f (NOT p) st rewrite f p st = {!!}
+f (AND p p₁) st = {!!}
+f (OR p p₁) st = {!!}
+-}
+
+⟦_⟧ci : ConditionalInstruction → State → State
+⟦ (p , i) ⟧ci st  with ⟦ p ⟧b st
+⟦ (p , i) ⟧ci st | false = st
+⟦ (p , i) ⟧ci st | true = ⟦ i ⟧i st
 
 -- test:
 
--- testInstruction : ConditionalInstruction
--- testInstruction = (TRUE , SKIP)
---
--- testPrf : (execute emptyState (Assignment 1 (Const 5))) 1 ≡ 5
--- testPrf = refl
+testInstruction : ConditionalInstruction
+testInstruction = (TRUE , SKIP)
+
+testPrf : (⟦ Assignment 1 (Const 5) ⟧i emptyState) 1 ≡ 5
+testPrf = refl

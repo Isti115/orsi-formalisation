@@ -1,3 +1,4 @@
+
 module ORSI.Statements where
 
 open import Data.Bool
@@ -6,11 +7,14 @@ open import Data.Sum
 open import Data.List
 open import Data.List.All
 open import Data.List.Any
+open import Relation.Binary.PropositionalEquality as Eq
 
 open import ORSI.Simple
 
 variable
-  p q r a b : Predicate
+  a b : Bool
+  p q r : Predicate
+  i : Instruction
   ci : ConditionalInstruction
   cis s : ParallelProgram
   st : State
@@ -18,48 +22,45 @@ variable
 Statement : Set₁
 Statement = Set
 
-data Implies : Predicate -> Predicate -> Statement where
-  Impl :
-    (prf : (pprf : st ⋈ p) -> (st ⋈ q)) ->
-    Implies p q
+_⇒_ : Predicate → Predicate → Statement
+p ⇒ q = ∀{st} → ⟦ p ⟧b st ≡ true → ⟦ q ⟧b st ≡ true
 
-_⇒_ = Implies
+∧-elim₁ : a ∧ b ≡ true → a ≡ true
+∧-elim₁ {true} {true} p = refl
 
-strenghtenImpliesLeft : (p ⇒ q) -> (r : Predicate) -> ((AND p r) ⇒ q)
-strenghtenImpliesLeft {p} {q} (Impl prf) r = Impl prf'
-  where
-    prf' : st ⋈ (AND p r) → st ⋈ q
-    prf' (st_p , st_r) = prf st_p
+∨-intr₁ : a ≡ true → a ∨ b ≡ true
+∨-intr₁ {true} p = p
 
-weakenImpliesRight : (p ⇒ q) -> (r : Predicate) -> (p ⇒ (OR q r))
-weakenImpliesRight {p} {q} (Impl prf) r = Impl prf'
-  where
-    prf' : st ⋈ p → st ⋈ (OR q r)
-    prf' st_p = inj₁ (prf st_p)
+strenghtenImpliesLeft : (p ⇒ q) → (AND p r ⇒ q)
+strenghtenImpliesLeft p⇒q p∧r = p⇒q (∧-elim₁ p∧r)
+
+weakenImpliesRight : (p ⇒ q) → (p ⇒ (OR q r))
+weakenImpliesRight p⇒q p = ∨-intr₁ (p⇒q p)
 
 impliesTrans : (p ⇒ q) -> (q ⇒ r) -> (p ⇒ r)
-impliesTrans {p} {q} {r} (Impl p_q_prf) (Impl q_r_prf) = Impl p_r_prf
-  where
-    p_r_prf : st ⋈ p → st ⋈ r
-    p_r_prf st_p = q_r_prf (p_q_prf st_p)
+impliesTrans p⇒q q⇒r p = q⇒r (p⇒q p)
 
-notOrToAndNotNot_prf : st ⋈ (NOT (OR p q)) → st ⋈ (AND (NOT p) (NOT q))
-notOrToAndNotNot_prf {st} {p} {q} p_q_or_n = (p_n , q_n)
-  where
-    p_n : st ⋈ NOT p
-    p_n st_p = p_q_or_n (inj₁ st_p)
-
-    q_n : st ⋈ NOT q
-    q_n st_q = p_q_or_n (inj₂ st_q)
+notOrToAndNotNot_prf : ⟦ NOT (OR p q) ⟧b st ≡ true → ⟦ AND (NOT p) (NOT q) ⟧b st ≡ true
+notOrToAndNotNot_prf {p}{q}{st} with ⟦ p ⟧b st | ⟦ q ⟧b st
+notOrToAndNotNot_prf {p}{q}{st} | false | false = λ x → x
+notOrToAndNotNot_prf {p}{q}{st} | false | true  = λ ()
+notOrToAndNotNot_prf {p}{q}{st} | true  | false = λ ()
+notOrToAndNotNot_prf {p}{q}{st} | true  | true  = λ ()
 
 notOrToAndNotNot_imp : (NOT (OR p q)) ⇒ (AND (NOT p) (NOT q))
-notOrToAndNotNot_imp = Impl notOrToAndNotNot_prf
+notOrToAndNotNot_imp {p}{q} = notOrToAndNotNot_prf {p}{q}
 
-impliesCWP : st ⋈ CWP (ci , p) → p ⇒ q → st ⋈ CWP (ci , q)
-impliesCWP {st} {ci}  p_prf (Impl prf) = {!   !}
--- impliesCWP {st} {ci}  p_prf (Impl prf) with ((ORSI.Simple.check st (proj₁ ci) (proj₂ ci))
---   | true = {!   !}
---   | false = ?
+WP : Instruction → Predicate → Condition
+WP i p st = ⟦ p ⟧b (⟦ i ⟧i st)
+
+CWP : ConditionalInstruction → Predicate → Condition
+CWP ci p st = ⟦ p ⟧b (⟦ ci ⟧ci st)
+
+impliesCWP : CWP ci p st ≡ true → p ⇒ q → CWP ci q st ≡ true
+impliesCWP {r , i}{p}{st} cwp p⇒q with ⟦ r ⟧b st
+impliesCWP {r , i} {p} {st} cwp p⇒q | false = p⇒q cwp
+impliesCWP {r , i} {p} {st} cwp p⇒q | true = p⇒q cwp
+{-
 
 allImpliesPCWP : st ⋈ PCWP (s , p) → p ⇒ q → st ⋈ PCWP (s , q)
 allImpliesPCWP [] imp = []
@@ -136,3 +137,4 @@ data LeadsTo : ParallelProgram -> Predicate -> Predicate -> Statement where
 
 _↪[_]_ : Predicate -> ParallelProgram -> Predicate -> Statement
 _↪[_]_ p s q = LeadsTo s p q
+-}
