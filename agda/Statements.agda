@@ -20,7 +20,7 @@ Statement = Set
 
 data Implies : Predicate -> Predicate -> Statement where
   Impl :
-    (prf : (st : State) -> (pprf : st ⋈ p) -> (st ⋈ q)) ->
+    (prf : (pprf : st ⋈ p) -> (st ⋈ q)) ->
     Implies p q
 
 _⇒_ = Implies
@@ -28,23 +28,23 @@ _⇒_ = Implies
 strenghtenImpliesLeft : (p ⇒ q) -> (r : Predicate) -> ((AND p r) ⇒ q)
 strenghtenImpliesLeft {p} {q} (Impl prf) r = Impl prf'
   where
-    prf' : (st : State) → st ⋈ (AND p r) → st ⋈ q
-    prf' st (st_p , st_r) = prf st st_p
+    prf' : st ⋈ (AND p r) → st ⋈ q
+    prf' (st_p , st_r) = prf st_p
 
 weakenImpliesRight : (p ⇒ q) -> (r : Predicate) -> (p ⇒ (OR q r))
 weakenImpliesRight {p} {q} (Impl prf) r = Impl prf'
   where
-    prf' : (st : State) → st ⋈ p → st ⋈ (OR q r)
-    prf' st st_p = inj₁ (prf st st_p)
+    prf' : st ⋈ p → st ⋈ (OR q r)
+    prf' st_p = inj₁ (prf st_p)
 
 impliesTrans : (p ⇒ q) -> (q ⇒ r) -> (p ⇒ r)
 impliesTrans {p} {q} {r} (Impl p_q_prf) (Impl q_r_prf) = Impl p_r_prf
   where
-    p_r_prf : (st : State) → st ⋈ p → st ⋈ r
-    p_r_prf st st_p = q_r_prf st (p_q_prf st st_p)
+    p_r_prf : st ⋈ p → st ⋈ r
+    p_r_prf st_p = q_r_prf (p_q_prf st_p)
 
-notOrToAndNotNot_prf : (st : State) → st ⋈ (NOT (OR p q)) → st ⋈ (AND (NOT p) (NOT q))
-notOrToAndNotNot_prf {p} {q} st p_q_or_n = (p_n , q_n)
+notOrToAndNotNot_prf : st ⋈ (NOT (OR p q)) → st ⋈ (AND (NOT p) (NOT q))
+notOrToAndNotNot_prf {st} {p} {q} p_q_or_n = (p_n , q_n)
   where
     p_n : st ⋈ NOT p
     p_n st_p = p_q_or_n (inj₁ st_p)
@@ -53,7 +53,7 @@ notOrToAndNotNot_prf {p} {q} st p_q_or_n = (p_n , q_n)
     q_n st_q = p_q_or_n (inj₂ st_q)
 
 notOrToAndNotNot_imp : (NOT (OR p q)) ⇒ (AND (NOT p) (NOT q))
-notOrToAndNotNot_imp {p} {q} = Impl notOrToAndNotNot_prf
+notOrToAndNotNot_imp = Impl notOrToAndNotNot_prf
 
 impliesCWP : st ⋈ CWP (ci , p) → p ⇒ q → st ⋈ CWP (ci , q)
 impliesCWP {st} {ci}  p_prf (Impl prf) = {!   !}
@@ -69,8 +69,8 @@ allImpliesPCWP (ci_prf ∷ cis_prfs) imp@(Impl prf) =
 lessImpliesPCWP : (p ⇒ (PCWP ((ci ∷ cis) , q))) -> (p ⇒ (PCWP (cis , q)))
 lessImpliesPCWP {p} {_} {cis} {q} (Impl prf) = Impl prf'
   where
-    prf' : (st : State) → st ⋈ p → st ⋈ (PCWP (cis , q))
-    prf' st pprf with (prf st pprf)
+    prf' : st ⋈ p → st ⋈ (PCWP (cis , q))
+    prf' pprf with (prf pprf)
     ... | (ci_prf ∷ cis_prfs) = cis_prfs
 
 --
@@ -90,18 +90,18 @@ _▷[_]_ p s q = Unless s p q
 --     prf' st st_p_q_r_or_not_and = {!   !}
 --
 weakenUnlessRight : (p ▷[ s ] q) -> (r : Predicate) -> (p ▷[ s ] (OR q r))
-weakenUnlessRight {p} {[]} {q} (Impl prf) r = Impl (λ st pprf → [])
+weakenUnlessRight {p} {[]} {q} (Impl prf) r = Impl (λ pprf → [])
 weakenUnlessRight {p} {ci ∷ cis} {q} (Impl prf) r = Impl prf'
   where
-    prf' : (st : State) → st ⋈ AND p (NOT (OR q r)) → st ⋈ PCWP ((ci ∷ cis) , OR p (OR q r))
-    prf' st pprf with pprf
-    ... | (st_p , st_q_or_r_n) with (prf st (st_p , proj₁ (notOrToAndNotNot_prf st st_q_or_r_n)))
+    prf' : st ⋈ AND p (NOT (OR q r)) → st ⋈ PCWP ((ci ∷ cis) , OR p (OR q r))
+    prf' {st} st_p_q_r_or_not_and with st_p_q_r_or_not_and
+    ... | (st_p , st_q_or_r_n) with (prf (st_p , proj₁ (notOrToAndNotNot_prf st_q_or_r_n)))
     ...   | (ci_prf ∷ cis_prfs) =
         (inj₁ st_p ∷ allImpliesPCWP {st} {cis} {OR p q} {OR p (OR q r)} cis_prfs (Impl prf''))
           where
-            prf'' : (st : State) → st ⋈ OR p q → st ⋈ OR p (OR q r)
-            prf'' st (inj₁ st_p) = inj₁ st_p
-            prf'' st (inj₂ st_q) = inj₂ (inj₁ st_q)
+            prf'' : st ⋈ OR p q → st ⋈ OR p (OR q r)
+            prf'' (inj₁ st_p) = inj₁ st_p
+            prf'' (inj₂ st_q) = inj₂ (inj₁ st_q)
 --
 -- weakenUnlessRight : (p ▷[ s ] q) -> (r : Predicate) -> (p ▷[ s ] (OR q r))
 -- weakenUnlessRight {p} {[]} {q} (Impl prf) r = Impl (λ st pprf → [])
