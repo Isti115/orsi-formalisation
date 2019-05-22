@@ -1,0 +1,17 @@
+----------              Assumptions:              ----------
+st : Nat -> Nat
+r : (Nat -> Nat) -> Bool
+q : (Nat -> Nat) -> Bool
+p : (Nat -> Nat) -> Bool
+s : List ((Nat -> Nat) -> Bool, Instruction)
+prf :
+  foldl
+    (\x, y => x && Delay (p y || Delay (q y)))
+    True
+    (map (conditionalExecute st) s) = True
+----------                 Goal:                  ----------
+{hole_6} :
+  foldl
+    (\x, y => x && Delay (p y || Delay (q y || Delay (r y))))
+    True
+    (map (conditionalExecute st) s) = True

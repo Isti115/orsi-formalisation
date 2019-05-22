@@ -1,0 +1,13 @@
+prf      : Prelude.List.List implementation of Prelude.Foldable.Foldable, method foldr Pair () (Prelude.List.List implementation of Prelude.Functor.Functor, method map (predicateWithState (OR p q))        (Prelude.List.List implementation of Prelude.Functor.Functor, method map (conditionalExecute st) s))
+----------                 Goal:                  ----------
+{hole_6} : Prelude.List.List implementation of Prelude.Foldable.Foldable, method foldr Pair () (Prelude.List.List implementation of Prelude.Functor.Functor, method map (predicateWithState (OR p (OR q r))) (Prelude.List.List implementation of Prelude.Functor.Functor, method map (conditionalExecute st) s))
+
+--
+
+prf      : foldr Pair () (map (predicateWithState (OR p q))        (map (conditionalExecute st) s))
+----------                 Goal:                  ----------
+{hole_6} : foldr Pair () (map (predicateWithState (OR p (OR q r))) (map (conditionalExecute st) s))
+
+--
+
+foldr Pair () (map (const Unit) ss)
