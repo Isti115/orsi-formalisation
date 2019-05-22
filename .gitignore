@@ -1,0 +1,6 @@
+# Idris
+*.ibc
+*.o
+
+# Agda
+*.agdai
