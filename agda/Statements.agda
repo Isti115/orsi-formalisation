@@ -103,10 +103,36 @@ lessPCWP : PCWP ((ci ∷ cis) , p) ⇛ PCWP (cis , p)
 lessPCWP {ci} {p = p} {st = st} pcwp with (st ⊨ CWP (ci , p))
 ... | true = pcwp
 
--- allImpliesPCWP : p ⇒ q → PCWP (s , p) ⇛ PCWP (s , q)
--- allImpliesPCWP {s = []} p⇒q pcwp = tt
--- allImpliesPCWP {p} {q} {s = ci ∷ cis} p⇒q {st} pcwp with (st ⊨ CWP (ci , p))
--- ... | true = allImpliesPCWP {p} {q} p⇒q {st} (lessPCWP {ci} pcwp)
+data Singleton {a} {A : Set a} (x : A) : Set a where
+  _with≡_ : (y : A) → x ≡ y → Singleton x
+
+inspect' : ∀ {a} {A : Set a} (x : A) → Singleton x
+inspect' x = x with≡ refl
+
+allImpliesPCWP : ∀{p}{q}{s} → p ⇒ q → PCWP (s , p) ⇛ PCWP (s , q)
+allImpliesPCWP {s = []} p⇒q pcwp = tt
+allImpliesPCWP {p} {q} {s = ci ∷ cis} p⇒q {st} pcwp = {!!}
+
+{-
+
+A ↔ B
+
+
+
+
+with inspect' (st ⊨ CWP (ci , p)) | ⟦ proj₁ ci ⟧c st
+allImpliesPCWP {p} {q} {ci ∷ cis} p⇒q {st} pcwp | false with≡ x | false = {!!}
+allImpliesPCWP {p} {q} {ci ∷ cis} p⇒q {st} pcwp | true with≡ x | false = {!!}
+allImpliesPCWP {p} {q} {ci ∷ cis} p⇒q {st} pcwp | false with≡ x | true = {!!}
+allImpliesPCWP {p} {q} {ci ∷ cis} p⇒q {st} pcwp | true with≡ x | true = {!!}
+
+(st ⊨ CWP (ci , p))
+
+allImpliesPCWP {p} {q} {ci ∷ cis} p⇒q {st} () | false
+allImpliesPCWP {p} {q} {ci ∷ cis} p⇒q {st} pcwp | true with ⟦ proj₁ ci ⟧c st
+allImpliesPCWP {p} {q} {ci ∷ cis} p⇒q {st} pcwp | true | false = T∧ {⟦ q ⟧c st}{_} ({!impliesCWP {p} {q} {ci} p⇒q !} , allImpliesPCWP {p} {q} {cis} p⇒q {st} pcwp)
+allImpliesPCWP {p} {q} {ci ∷ cis} p⇒q {st} pcwp | true | true = {!!}
+-}
 
 -- allImpliesPCWP : PCWP (s , p) → p ⇒ q → st ⊢ PCWP (s , q)
 -- allImpliesPCWP [] imp = []
