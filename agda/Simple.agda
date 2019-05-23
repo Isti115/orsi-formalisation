@@ -67,15 +67,15 @@ ConditionalInstruction = (Predicate × Instruction)
 ParallelProgram : Set
 ParallelProgram = List ConditionalInstruction
 
-Statement : Set₁
-Statement = State → Set
+Assertion : Set₁
+Assertion = State → Set
 
-⟦_⟧s : Predicate -> Statement
-⟦ TRUE ⟧s state = ⊤
-⟦ FALSE ⟧s state = ⊥
-⟦ NOT p ⟧s state = ¬ (⟦ p ⟧s state)
-⟦ AND p p₁ ⟧s state = ((⟦ p ⟧s state) × (⟦ p₁ ⟧s state))
-⟦ OR p p₁ ⟧s state = ((⟦ p ⟧s state) ⊎ (⟦ p₁ ⟧s state))
+⟦_⟧a : Predicate -> Assertion
+⟦ TRUE ⟧a state = ⊤
+⟦ FALSE ⟧a state = ⊥
+⟦ NOT p ⟧a state = ¬ (⟦ p ⟧a state)
+⟦ AND p p₁ ⟧a state = ((⟦ p ⟧a state) × (⟦ p₁ ⟧a state))
+⟦ OR p p₁ ⟧a state = ((⟦ p ⟧a state) ⊎ (⟦ p₁ ⟧a state))
 
 Condition : Set
 Condition = State → Bool
@@ -117,43 +117,34 @@ CTS_NOT : {a : Bool} → T (not a) → ¬ (T a)
 CTS_NOT {false} = const id
 CTS_NOT {true} ()
 
--- a ⊂ b, a' ⊂ b', b→a' ⊂ a→b'
--- ℤ → B ⊂ ℕ → B
--- ¬ A = A → ⊥
--- λ X → (ℕ → X)
--- map : (f : A → B) → (ℕ → A) → (ℕ → B)
+assertionToCondition : {p : Predicate} → {st : State} → ⟦ p ⟧a st → T (⟦ p ⟧c st)
+conditionToAssertion : {p : Predicate} → {st : State} → T (⟦ p ⟧c st) → ⟦ p ⟧a st
 
--- λ X → (X → ℕ)
--- map : (f : A → B) → (B → ℕ) → (A → ℕ)
+assertionToCondition {TRUE} ps_st = tt
+assertionToCondition {FALSE} ()
+assertionToCondition {NOT p} {st} ¬ps_st = STC_NOT (λ T_p₁c_st → ¬ps_st (conditionToAssertion T_p₁c_st))
+assertionToCondition {AND p p₁} (ps_st , p₁s_st) =
+  STC_AND (assertionToCondition {p} ps_st , assertionToCondition {p₁} p₁s_st)
+assertionToCondition {OR p p₁} (inj₁ ps_st) = STC_OR (inj₁ (assertionToCondition ps_st))
+assertionToCondition {OR p p₁} (inj₂ p₁s_st) = STC_OR (inj₂ (assertionToCondition p₁s_st))
 
-statementToCondition : {p : Predicate} → {st : State} → ⟦ p ⟧s st → T (⟦ p ⟧c st)
-conditionToStatement : {p : Predicate} → {st : State} → T (⟦ p ⟧c st) → ⟦ p ⟧s st
-
-statementToCondition {TRUE} ps_st = tt
-statementToCondition {FALSE} ()
-statementToCondition {NOT p} {st} ¬ps_st = STC_NOT (λ T_p₁c_st → ¬ps_st (conditionToStatement T_p₁c_st))
-statementToCondition {AND p p₁} (ps_st , p₁s_st) =
-  STC_AND (statementToCondition {p} ps_st , statementToCondition {p₁} p₁s_st)
-statementToCondition {OR p p₁} (inj₁ ps_st) = STC_OR (inj₁ (statementToCondition ps_st))
-statementToCondition {OR p p₁} (inj₂ p₁s_st) = STC_OR (inj₂ (statementToCondition p₁s_st))
-
-conditionToStatement {TRUE} {st} tt = tt
-conditionToStatement {FALSE} {st} ()
-conditionToStatement {NOT p} {st} T_not_pc_st ps_st = (CTS_NOT T_not_pc_st) (statementToCondition ps_st)
-conditionToStatement {AND p p₁} {st} pc_st∧p₁c_st with (CTS_AND {⟦ p ⟧c st} pc_st∧p₁c_st)
-conditionToStatement {AND p p₁} {st} pc_st∧p₁c_st | (T_pc_st , T_p₁c_st) =
-  (conditionToStatement T_pc_st , conditionToStatement T_p₁c_st)
-conditionToStatement {OR p p₁} {st} pc_st∧p₁c_st with (CTS_OR {⟦ p ⟧c st} pc_st∧p₁c_st)
-conditionToStatement {OR p p₁} {st} pc_st∧p₁c_st | inj₁ T_pc_st = inj₁ (conditionToStatement T_pc_st)
-conditionToStatement {OR p p₁} {st} pc_st∧p₁c_st | inj₂ T_p₁c_st = inj₂ (conditionToStatement T_p₁c_st)
+conditionToAssertion {TRUE} {st} tt = tt
+conditionToAssertion {FALSE} {st} ()
+conditionToAssertion {NOT p} {st} T_not_pc_st ps_st = (CTS_NOT T_not_pc_st) (assertionToCondition ps_st)
+conditionToAssertion {AND p p₁} {st} pc_st∧p₁c_st with (CTS_AND {⟦ p ⟧c st} pc_st∧p₁c_st)
+conditionToAssertion {AND p p₁} {st} pc_st∧p₁c_st | (T_pc_st , T_p₁c_st) =
+  (conditionToAssertion T_pc_st , conditionToAssertion T_p₁c_st)
+conditionToAssertion {OR p p₁} {st} pc_st∧p₁c_st with (CTS_OR {⟦ p ⟧c st} pc_st∧p₁c_st)
+conditionToAssertion {OR p p₁} {st} pc_st∧p₁c_st | inj₁ T_pc_st = inj₁ (conditionToAssertion T_pc_st)
+conditionToAssertion {OR p p₁} {st} pc_st∧p₁c_st | inj₂ T_p₁c_st = inj₂ (conditionToAssertion T_p₁c_st)
 
 conditionDecidability : {p : Predicate} → {st : State} → T (not (⟦ p ⟧c st) ∨ ⟦ p ⟧c st)
 conditionDecidability {p} {st} with (⟦ p ⟧c st)
 conditionDecidability {p} {st} | false = tt
 conditionDecidability {p} {st} | true = tt
 
-statementDecidability : {p : Predicate} → {st : State} → ((¬ ⟦ p ⟧s st) ⊎ (⟦ p ⟧s st))
-statementDecidability {p} {st} = conditionToStatement (conditionDecidability {p})
+assertionDecidability : {p : Predicate} → {st : State} → ((¬ ⟦ p ⟧a st) ⊎ (⟦ p ⟧a st))
+assertionDecidability {p} {st} = conditionToAssertion (conditionDecidability {p})
 
 --
 
@@ -162,32 +153,19 @@ statementDecidability {p} {st} = conditionToStatement (conditionDecidability {p}
 ... | false = st
 ... | true = ⟦ i ⟧i st
 
--- _⋈_ : State → Predicate → Set
--- st ⋈ p = T (⟦ p ⟧c st)
+--
 
-_⋈_ : State -> Predicate -> Set
-st ⋈ p = ⟦ p ⟧s st
+_⋈p_ : State -> Predicate -> Set
+st ⋈p p = ⟦ p ⟧a st
 
 _⊢_ : State → Predicate → Bool
 st ⊢ p = ⟦ p ⟧c st
 
+_⋈c_ : State → Predicate → Set
+st ⋈c p = T (⟦ p ⟧c st)
+
 _⊨_ : State → Condition → Bool
 st ⊨ c = c st
 
--- f g : Bool → Set
--- f x = if x then ℕ else ℕ
--- g x = if x then ℕ else ℕ
---
--- fg : f ≡ g
--- fg = refl
-
-{-
-if : (C : Bool → Set) → C true → C false → (b : Bool) → C b
-
-if _ 2 4 t
-
-λ _ → ℕ :: Bool → Set
-
-
-
--}
+_⋈a_ : State -> Assertion -> Set
+st ⋈a a = a st
