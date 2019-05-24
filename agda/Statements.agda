@@ -15,9 +15,9 @@ open import Function
 open import Simple
 
 variable
-  a b : Bool
-  P Q R : Predicate
-  c d e : Condition
+  P Q R B : Predicate
+  a b : Assertion
+  c d : Condition
   i : Instruction
   ci : ConditionalInstruction
   cis S : ParallelProgram
@@ -26,40 +26,55 @@ variable
 Statement : Set₁
 Statement = Set
 
-_⇒_ : Predicate → Predicate → Statement
-P ⇒ Q = ∀{st} → st ⋈p P → st ⋈p Q
 --
--- _⇛_ : Condition → Condition → Statement
--- c ⇛ d = ∀{st} → T (st ⊨ c) → T (st ⊨ d)
 
--- -- ∧-elim
+_⇒_ : Predicate → Predicate → Statement
+P ⇒ Q = ∀{st} → st ⊢ P → st ⊢ Q
 --
--- ∧-elim : T (a ∧ b) → (T a × T b)
--- ∧-elim {true} {true} Ta∧b = (tt , tt)
+_⇛_ : Assertion → Assertion → Statement
+a ⇛ b = ∀{st} → st ⊩ a → st ⊩ b
+
 --
--- ∧-elim₁ : T (a ∧ b) → T a
--- ∧-elim₁ = proj₁ ∘ ∧-elim
+
+orCommutative : OR P Q ⇒ OR Q P
+orCommutative (inj₁ p) = inj₂ p
+orCommutative (inj₂ q) = inj₁ q
+
+andCommutative : AND P Q ⇒ AND Q P
+andCommutative (p , q) = (q , p)
+
 --
--- ∧-elim₂ : T (a ∧ b) → T b
--- ∧-elim₂ = proj₂ ∘ ∧-elim
+
+weakenOrLeft : OR P Q ⇒ OR (OR P R) Q
+weakenOrLeft (inj₁ p) = inj₁ (inj₁ p)
+weakenOrLeft (inj₂ q) = inj₂ q
+
+weakenOrRight : OR P Q ⇒ OR P (OR Q R)
+weakenOrRight = orCommutative ∘ weakenOrLeft ∘ orCommutative
+
+strenghtenOrLeft : OR (AND P R) Q ⇒ OR P Q
+strenghtenOrLeft (inj₁ (p , r)) = inj₁ p
+strenghtenOrLeft (inj₂ q) = inj₂ q
+
+strenghtenOrRight : OR P (AND Q R) ⇒ OR P Q
+strenghtenOrRight = orCommutative ∘ strenghtenOrLeft ∘ orCommutative
+
 --
--- -- ∨-intr
+
+weakenAndLeft : AND P Q ⇒ AND (OR P R) Q
+weakenAndLeft (p , q) = (inj₁ p , q)
+
+weakenAndRight : AND P Q ⇒ AND P (OR Q R)
+weakenAndRight = andCommutative ∘ weakenAndLeft ∘ andCommutative
+
+strenghtenAndLeft : AND (AND P R) Q ⇒ AND P Q
+strenghtenAndLeft ((p , r) , q) = (p , q)
+
+strenghtenAndRight : AND P (AND Q R) ⇒ AND P Q
+strenghtenAndRight = andCommutative ∘ strenghtenAndLeft ∘ andCommutative
+
 --
--- ∨-intr : (T a ⊎ T b) → T (a ∨ b)
--- ∨-intr {true} {b} (inj₁ Ta) = tt
--- ∨-intr {a} {true} (inj₂ Tb) rewrite ∨-comm a true = tt
---
--- -- ∨-intr {false} {true} (inj₂ Tb) = refl
--- -- ∨-intr {true} {true} (inj₂ Tb) = refl
---
--- ∨-intr₁ : T a → T (a ∨ b)
--- ∨-intr₁ = ∨-intr ∘ inj₁
---
--- ∨-intr₂ : T b → T (a ∨ b)
--- ∨-intr₂ = ∨-intr ∘ inj₂
---
--- --
---
+
 impliesTrans : (P ⇒ Q) → (Q ⇒ R) → (P ⇒ R)
 impliesTrans p⇒q q⇒r p = q⇒r (p⇒q p)
 
@@ -68,151 +83,88 @@ strenghtenImpliesLeft p⇒q p∧r = p⇒q (proj₁ p∧r)
 
 weakenImpliesRight : (P ⇒ Q) → (P ⇒ OR Q R)
 weakenImpliesRight p⇒q p = inj₁ (p⇒q p)
---
--- -- De Morgan
---
--- notOrToAndNotNot : NOT (OR p q) ⇒ AND (NOT p) (NOT q)
--- notOrToAndNotNot {p} {q} {st} ¬_p∨q_ with st ⊢ p | st ⊢ q
--- ... | false | false = tt
---
--- notAndToOrNotNot : NOT (AND p q) ⇒ OR (NOT p) (NOT q)
--- notAndToOrNotNot {p} {q} {st} ¬_p∧q_ with st ⊢ p | st ⊢ q
--- ... | false | _ = tt
--- ... | st⊢p | false rewrite ∨-comm (not st⊢p) (not false) = tt
+
+-- De Morgan
 
 notOrToAndNotNot : NOT (OR P Q) ⇒ AND (NOT P) (NOT Q)
 notOrToAndNotNot ¬_p∨q_ = ((λ p → ¬_p∨q_ (inj₁ p)) , (λ q → ¬_p∨q_ (inj₂ q)))
 
+-- notAndToOrNotNot : NOT (AND P Q) ⇒ OR (NOT P) (NOT Q)
+-- notAndToOrNotNot {P} {Q} {st} ¬_p∧q_ = {!   !}
+
 notAndToOrNotNot : NOT (AND P Q) ⇒ OR (NOT P) (NOT Q)
-notAndToOrNotNot ¬_p∧q_ = {!  !}
+notAndToOrNotNot {P} {Q} {st} ¬_p∧q_ with assertionDecidability {P} {st}
+notAndToOrNotNot {P} {Q} {st} ¬_p∧q_ | inj₁ ¬p = inj₁ ¬p
+-- notAndToOrNotNot {P} {Q} {st} ¬_p∧q_ | inj₂ p = inj₂ (λ x → ¬_p∧q_ (p , x))
+notAndToOrNotNot {P} {Q} {st} ¬_p∧q_ | inj₂ p = inj₂ ¬q
+  where
+    ¬q : st ⊢ NOT Q
+    ¬q = λ q → ¬_p∧q_ (p , q)
+
 --
+
 WP : (Instruction × Predicate) → Assertion
-WP (i , p) = λ st → (⟦ i ⟧i st) ⋈p p
+WP (i , P) = λ st → (⟦ i ⟧i st) ⊢ P
 
 CWP : (ConditionalInstruction × Predicate) → Assertion
-CWP (ci , p) = λ st → (⟦ ci ⟧ci st) ⋈p p
+CWP (ci , P) = λ st → (⟦ ci ⟧ci st) ⊢ P
 
 PCWP : (ParallelProgram × Predicate) → Assertion
-PCWP (s , p) = λ st → All (λ ci → st ⋈a (CWP (ci , p))) s
+PCWP (S , P) = λ st → All (λ ci → st ⊩ (CWP (ci , P))) S
+
 --
--- -- impliesCWP : T ((CWP (ci , p)) st) → p ⇒ q → T ((CWP (ci , q)) st)
--- -- impliesCWP p⇒q cwp = p⇒q cwp
--- -- impliesCWP = _|>_
--- -- impliesCWP {ci = (r , i)} {p} {st} cwp p⇒q with st ⊢ r
--- -- ... | false = p⇒q cwp
--- -- ... | true = p⇒q cwp
+
+impliesCWP : P ⇒ Q → (CWP (ci , P)) ⇛ (CWP (ci , Q))
+impliesCWP p⇒q cwp = p⇒q cwp
+
+lessPCWP : PCWP ((ci ∷ cis) , P) ⇛ PCWP (cis , P)
+lessPCWP (ci_prf ∷ cis_prfs) = cis_prfs
+
+allImpliesPCWP : P ⇒ Q → PCWP (S , P) ⇛ PCWP (S , Q)
+allImpliesPCWP p⇒q [] = []
+allImpliesPCWP p⇒q (ci_prf ∷ cis_prfs) = p⇒q ci_prf ∷ allImpliesPCWP p⇒q cis_prfs
+
+lessImpliesPCWP : (⟦ P ⟧a ⇛ (PCWP ((ci ∷ cis) , Q))) → (⟦ P ⟧a ⇛ (PCWP (cis , Q)))
+lessImpliesPCWP p⇛pcwp p = lessPCWP (p⇛pcwp p)
+
 --
--- impliesCWP : p ⇒ q → (CWP (ci , p)) ⇛ (CWP (ci , q))
--- impliesCWP p⇒q cwp = p⇒q cwp
---
--- lessPCWP : PCWP ((ci ∷ cis) , p) ⇛ PCWP (cis , p)
--- lessPCWP {ci} {p = p} {st = st} pcwp with (st ⊨ CWP (ci , p))
--- ... | true = pcwp
---
--- data Singleton {a} {A : Set a} (x : A) : Set a where
---   _with≡_ : (y : A) → x ≡ y → Singleton x
---
--- inspect' : ∀ {a} {A : Set a} (x : A) → Singleton x
--- inspect' x = x with≡ refl
---
--- allImpliesPCWP : ∀{p}{q}{s} → p ⇒ q → PCWP (s , p) ⇛ PCWP (s , q)
--- allImpliesPCWP {s = []} p⇒q pcwp = tt
--- allImpliesPCWP {p} {q} {s = ci ∷ cis} p⇒q {st} pcwp = {!!}
---
--- {-
---
--- A ↔ B
---
---
---
---
--- with inspect' (st ⊨ CWP (ci , p)) | ⟦ proj₁ ci ⟧c st
--- allImpliesPCWP {p} {q} {ci ∷ cis} p⇒q {st} pcwp | false with≡ x | false = {!!}
--- allImpliesPCWP {p} {q} {ci ∷ cis} p⇒q {st} pcwp | true with≡ x | false = {!!}
--- allImpliesPCWP {p} {q} {ci ∷ cis} p⇒q {st} pcwp | false with≡ x | true = {!!}
--- allImpliesPCWP {p} {q} {ci ∷ cis} p⇒q {st} pcwp | true with≡ x | true = {!!}
---
--- (st ⊨ CWP (ci , p))
---
--- allImpliesPCWP {p} {q} {ci ∷ cis} p⇒q {st} () | false
--- allImpliesPCWP {p} {q} {ci ∷ cis} p⇒q {st} pcwp | true with ⟦ proj₁ ci ⟧c st
--- allImpliesPCWP {p} {q} {ci ∷ cis} p⇒q {st} pcwp | true | false = T∧ {⟦ q ⟧c st}{_} ({!impliesCWP {p} {q} {ci} p⇒q !} , allImpliesPCWP {p} {q} {cis} p⇒q {st} pcwp)
--- allImpliesPCWP {p} {q} {ci ∷ cis} p⇒q {st} pcwp | true | true = {!!}
--- -}
---
--- -- allImpliesPCWP : PCWP (s , p) → p ⇒ q → st ⊢ PCWP (s , q)
--- -- allImpliesPCWP [] imp = []
--- -- allImpliesPCWP (ci_prf ∷ cis_prfs) imp@(Impl prf) =
--- --   (impliesCWP ci_prf imp ∷ allImpliesPCWP cis_prfs imp)
---
--- {-
--- lessImpliesPCWP : (p ⇒ (PCWP ((ci ∷ cis) , q))) → (p ⇒ (PCWP (cis , q)))
--- lessImpliesPCWP {p} {_} {cis} {q} (Impl prf) = Impl prf'
---   where
---     prf' : st ⊢ p → st ⊢ (PCWP (cis , q))
---     prf' pprf with (prf pprf)
---     ... | (ci_prf ∷ cis_prfs) = cis_prfs
--- -}
--- --
---
--- Unless : ParallelProgram → Predicate → Predicate → Statement
--- Unless s p q = ⟦ (AND p (NOT q)) ⟧c ⇛ (PCWP (s , OR p q))
---
--- _▷[_]_ : Predicate → ParallelProgram → Predicate → Statement
--- _▷[_]_ p s q = Unless s p q
---
--- weakenUnlessRight : (p ▷[ s ] q) → (p ▷[ s ] (OR q r))
--- weakenUnlessRight p∧¬q = {!   !}
--- -- weakenUnlessRight (Impl prf) r = Impl prf'
--- --   where
--- --     prf' : (st : State) → st ⊢ AND p (NOT (OR q r)) → st ⊢ PCWP (s , OR p (OR q r))
--- --     prf' st st_p_q_r_or_not_and = {!   !}
---
---
--- {-
--- weakenUnlessRight : (p ▷[ s ] q) → (r : Predicate) → (p ▷[ s ] (OR q r))
--- weakenUnlessRight {p} {[]} {q} (Impl prf) r = Impl (λ pprf → [])
--- weakenUnlessRight {p} {ci ∷ cis} {q} (Impl prf) r = Impl prf'
---   where
---     prf' : st ⊢ AND p (NOT (OR q r)) → st ⊢ PCWP ((ci ∷ cis) , OR p (OR q r))
---     prf' {st} st_p_q_r_or_not_and with st_p_q_r_or_not_and
---     ... | (st_p , st_q_or_r_n) with (prf (st_p , proj₁ (notOrToAndNotNot_prf st_q_or_r_n)))
---     ...   | (ci_prf ∷ cis_prfs) =
---         (inj₁ st_p ∷ allImpliesPCWP {st} {cis} {OR p q} {OR p (OR q r)} cis_prfs (Impl prf''))
---           where
---             prf'' : st ⊢ OR p q → st ⊢ OR p (OR q r)
---             prf'' (inj₁ st_p) = inj₁ st_p
---             prf'' (inj₂ st_q) = inj₂ (inj₁ st_q)
--- --
--- -- weakenUnlessRight : (p ▷[ s ] q) → (r : Predicate) → (p ▷[ s ] (OR q r))
--- -- weakenUnlessRight {p} {[]} {q} (Impl prf) r = Impl (λ st pprf → [])
--- -- weakenUnlessRight {p} {ci ∷ cis} {q} (Impl prf) r = Impl prf'
--- --   where
--- --     prf' : (st : State) → st ⊢ AND p (NOT (OR q r)) → st ⊢ PCWP ((ci ∷ cis) , OR p (OR q r))
--- --     prf' st pprf with pprf
--- --     ... | (st_p , st_q_or_r_n) with (prf st (st_p , st_q_n))
--- --       where
--- --         st_q_n : st ⊢ NOT q
--- --         st_q_n st_q = st_q_or_r_n (inj₁ st_q)
--- --     ...   | (ci_prf ∷ cis_prfs) =
--- --         (inj₁ st_p ∷ allImpliesPCWP {st} {cis} {OR p q} {OR p (OR q r)} cis_prfs (Impl prf''))
--- --           where
--- --             prf'' : (st : State) → st ⊢ OR p q → st ⊢ OR p (OR q r)
--- --             prf'' st (inj₁ st_p) = inj₁ st_p
--- --             prf'' st (inj₂ st_q) = inj₂ (inj₁ st_q)
--- --
--- -}
---
--- Ensures : ParallelProgram → Predicate → Predicate → Statement
--- Ensures s p q = (Unless s p q × (Any (λ ci → ⟦ AND p (NOT q) ⟧c ⇛ (CWP (ci , q))) s))
---
--- _↦[_]_ : Predicate → ParallelProgram → Predicate → Statement
--- _↦[_]_ p s q = Ensures s p q
---
--- data LeadsTo : ParallelProgram → Predicate → Predicate → Statement where
---   FromEnsures : Ensures s p q → LeadsTo s p q
---   Transitivity : (LeadsTo s p q × LeadsTo s q r) → LeadsTo s p r
---   Disjunctivity : ((LeadsTo s p r) ⊎ (LeadsTo s q r)) → LeadsTo s (OR p q) r
---
--- _↪[_]_ : Predicate → ParallelProgram → Predicate → Statement
--- _↪[_]_ p s q = LeadsTo s p q
+
+Unless : ParallelProgram → Predicate → Predicate → Statement
+Unless S P Q = ⟦ (AND P (NOT Q)) ⟧a ⇛ (PCWP (S , OR P Q))
+
+_▷[_]_ : Predicate → ParallelProgram → Predicate → Statement
+_▷[_]_ P S Q = Unless S P Q
+
+weakenUnlessRight : (P ▷[ S ] Q) → (P ▷[ S ] (OR Q R))
+weakenUnlessRight {P} {Q = Q} p∧¬q⇛pcwp (p , ¬_q∨r_) =
+  allImpliesPCWP weakenOrRight (p∧¬q⇛pcwp (p , (¬_q∨r_ ∘ inj₁)))
+  -- λ { (p , ¬_q∨r_) → allImpliesPCWP {OR P Q} weakenOrRight (p∧¬q⇛pcwp (p , (λ q → ¬_q∨r_ (inj₁ q)) }
+
+Ensures : ParallelProgram → Predicate → Predicate → Statement
+Ensures S P Q = (Unless S P Q × (Any (λ ci → ⟦ AND P (NOT Q) ⟧a  ⇛ (CWP (ci , Q))) S))
+
+_↦[_]_ : Predicate → ParallelProgram → Predicate → Statement
+_↦[_]_ P S Q = Ensures S P Q
+
+data LeadsTo : ParallelProgram → Predicate → Predicate → Statement where
+  FromEnsures : Ensures S P Q → LeadsTo S P Q
+  Transitivity : (LeadsTo S P Q × LeadsTo S Q R) → LeadsTo S P R
+  Disjunctivity : ((LeadsTo S P R) ⊎ (LeadsTo S Q R)) → LeadsTo S (OR P Q) R
+
+_↪[_]_ : Predicate → ParallelProgram → Predicate → Statement
+_↪[_]_ P S Q = LeadsTo S P Q
+
+Invariant : ParallelProgram -> Predicate -> Statement
+Invariant S P = ⟦ P ⟧a ⇛ (PCWP (S , P))
+
+_∈inv[_] : Predicate → ParallelProgram → Statement
+P ∈inv[ S ] = Invariant S P
+
+-- PSP
+
+PSP : ((P ↪[ S ] Q) × (R ▷[ S ] B)) → (AND P R) ↪[ S ] (OR (AND Q R) B)
+-- PSP (P↪[S]Q , R▷[S]B) = {!   !}
+PSP (FromEnsures (P▷[S]Q , exists) , R▷[S]B) = {!  !}
+PSP (Transitivity (P↪[S]Q₁ , Q₁↪[S]Q) , R▷[S]B) = {!   !}
+PSP (Disjunctivity (inj₁ P↪[S]Q₁) , R▷[S]B) = {!   !}
+PSP (Disjunctivity (inj₂ Q↪[S]Q₁) , R▷[S]B) = {!   !}

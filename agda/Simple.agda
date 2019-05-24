@@ -155,17 +155,17 @@ assertionDecidability {p} {st} = conditionToAssertion (conditionDecidability {p}
 
 --
 
-_⋈p_ : State -> Predicate -> Set
-st ⋈p p = ⟦ p ⟧a st
+_⊢_ : State -> Predicate -> Set
+st ⊢ p = ⟦ p ⟧a st
 
-_⊢_ : State → Predicate → Bool
-st ⊢ p = ⟦ p ⟧c st
+_⊩_ : State -> Assertion -> Set
+st ⊩ a = a st
 
-_⋈c_ : State → Predicate → Set
-st ⋈c p = T (⟦ p ⟧c st)
+_⊪_ : State → Predicate → Set
+st ⊪ p = T (⟦ p ⟧c st)
 
-_⊨_ : State → Condition → Bool
-st ⊨ c = c st
+_⊨_ : State → Predicate → Bool
+st ⊨ p = ⟦ p ⟧c st
 
-_⋈a_ : State -> Assertion -> Set
-st ⋈a a = a st
+_⊫_ : State → Condition → Bool
+st ⊫ c = c st
