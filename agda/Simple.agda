@@ -61,6 +61,17 @@ data Predicate : Set where
   AND : Predicate -> Predicate -> Predicate
   OR : Predicate -> Predicate -> Predicate
 
+⌝_ : Predicate → Predicate
+⌝_ = NOT
+
+infixr 6 _△_
+_△_ : Predicate → Predicate → Predicate
+_△_ = AND
+
+infixr 5 _▽_
+_▽_ : Predicate → Predicate → Predicate
+_▽_ = OR
+
 ConditionalInstruction : Set
 ConditionalInstruction = (Predicate × Instruction)
 
