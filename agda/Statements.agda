@@ -55,58 +55,58 @@ a ⇛ b = ∀{st} → st ⊩ a → st ⊩ b
 
 --
 
-orCommutative : OR P Q ⇒ OR Q P
+orCommutative : P ▽ Q ⇒ Q ▽ P
 orCommutative (inj₁ p) = inj₂ p
 orCommutative (inj₂ q) = inj₁ q
 
-andCommutative : AND P Q ⇒ AND Q P
+andCommutative : P △ Q ⇒ Q △ P
 andCommutative (p , q) = (q , p)
 
 --
 
-weaken : P ⇒ OR P Q
+weaken : P ⇒ P ▽ Q
 weaken = inj₁
 
-strenghten : AND P Q ⇒ P
+strenghten : P △ Q ⇒ P
 strenghten = proj₁
 
-impliesOrLeft : P ⇒ R → OR P Q ⇒ OR R Q
+impliesOrLeft : P ⇒ R → P ▽ Q ⇒ R ▽ Q
 impliesOrLeft p⇒r (inj₁ p) = inj₁ (p⇒r p)
 impliesOrLeft p⇒r (inj₂ q) = inj₂ q
 
-impliesOrRight : Q ⇒ R → OR P Q ⇒ OR P R
+impliesOrRight : Q ⇒ R → P ▽ Q ⇒ P ▽ R
 impliesOrRight q⇒r = orCommutative ∘ impliesOrLeft q⇒r ∘ orCommutative
 
-impliesAndLeft : P ⇒ R → AND P Q ⇒ AND R Q
+impliesAndLeft : P ⇒ R → P △ Q ⇒ R △ Q
 impliesAndLeft p⇒r (p , q) = (p⇒r p , q)
 
-impliesAndRight : Q ⇒ R → AND P Q ⇒ AND P R
+impliesAndRight : Q ⇒ R → P △ Q ⇒ P △ R
 impliesAndRight q⇒r = andCommutative ∘ impliesAndLeft q⇒r ∘ andCommutative
 
 --
 
-weakenOrLeft : OR P Q ⇒ OR (OR P R) Q
+weakenOrLeft : P ▽ Q ⇒ (P ▽ R) ▽ Q
 weakenOrLeft = impliesOrLeft weaken
 
-weakenOrRight : OR P Q ⇒ OR P (OR Q R)
+weakenOrRight : P ▽ Q ⇒ P ▽ (Q ▽ R)
 weakenOrRight = impliesOrRight weaken
 
-strenghtenOrLeft : OR (AND P R) Q ⇒ OR P Q
+strenghtenOrLeft : (P △ R) ▽ Q ⇒ P ▽ Q
 strenghtenOrLeft = impliesOrLeft strenghten
 
-strenghtenOrRight : OR P (AND Q R) ⇒ OR P Q
+strenghtenOrRight : P ▽ (Q △ R) ⇒ P ▽ Q
 strenghtenOrRight = impliesOrRight strenghten
 
-weakenAndLeft : AND P Q ⇒ AND (OR P R) Q
+weakenAndLeft : P △ Q ⇒ (P ▽ R) △ Q
 weakenAndLeft = impliesAndLeft weaken
 
-weakenAndRight : AND P Q ⇒ AND P (OR Q R)
+weakenAndRight : P △ Q ⇒ P △ (Q ▽ R)
 weakenAndRight = impliesAndRight weaken
 
-strenghtenAndLeft : AND (AND P R) Q ⇒ AND P Q
+strenghtenAndLeft : (P △ R) △ Q ⇒ P △ Q
 strenghtenAndLeft = impliesAndLeft strenghten
 
-strenghtenAndRight : AND P (AND Q R) ⇒ AND P Q
+strenghtenAndRight : P △ (Q △ R) ⇒ P △ Q
 strenghtenAndRight = impliesAndRight strenghten
 
 --
@@ -114,27 +114,27 @@ strenghtenAndRight = impliesAndRight strenghten
 impliesTrans : (P ⇒ Q) → (Q ⇒ R) → (P ⇒ R)
 impliesTrans p⇒q q⇒r p = q⇒r (p⇒q p)
 
-strenghtenImpliesLeft : (P ⇒ Q) → (AND P R ⇒ Q)
+strenghtenImpliesLeft : (P ⇒ Q) → (P △ R ⇒ Q)
 strenghtenImpliesLeft p⇒q p∧r = p⇒q (proj₁ p∧r)
 
-weakenImpliesRight : (P ⇒ Q) → (P ⇒ OR Q R)
+weakenImpliesRight : (P ⇒ Q) → (P ⇒ Q ▽ R)
 weakenImpliesRight p⇒q p = inj₁ (p⇒q p)
 
 -- De Morgan
 
-notOrToAndNotNot : NOT (OR P Q) ⇒ AND (NOT P) (NOT Q)
-notOrToAndNotNot ¬_p∨q_ = ((λ p → ¬_p∨q_ (inj₁ p)) , (λ q → ¬_p∨q_ (inj₂ q)))
+notOrToAndNotNot : ⌝ (P ▽ Q) ⇒ (⌝ P) △ (⌝ Q)
+notOrToAndNotNot ¬_p∨q_ = ((¬_p∨q_ ∘ inj₁) , (¬_p∨q_ ∘ inj₂))
 
 -- notAndToOrNotNot : NOT (AND P Q) ⇒ OR (NOT P) (NOT Q)
 -- notAndToOrNotNot {P} {Q} {st} ¬_p∧q_ = {!   !}
 
-notAndToOrNotNot : NOT (AND P Q) ⇒ OR (NOT P) (NOT Q)
+notAndToOrNotNot : ⌝ (P △ Q) ⇒ (⌝ P) ▽ (⌝ Q)
 notAndToOrNotNot {P} {Q} {st} ¬_p∧q_ with assertionDecidability {P} {st}
 notAndToOrNotNot {P} {Q} {st} ¬_p∧q_ | inj₁ ¬p = inj₁ ¬p
 -- notAndToOrNotNot {P} {Q} {st} ¬_p∧q_ | inj₂ p = inj₂ (λ x → ¬_p∧q_ (p , x))
 notAndToOrNotNot {P} {Q} {st} ¬_p∧q_ | inj₂ p = inj₂ ¬q
   where
-    ¬q : st ⊢ NOT Q
+    ¬q : st ⊢ (⌝ Q)
     ¬q = λ q → ¬_p∧q_ (p , q)
 
 --
@@ -179,7 +179,7 @@ lessImpliesPCWP p⇛pcwp = λ p → lessPCWP (p⇛pcwp p)
 --
 
 Unless : ParallelProgram → Predicate → Predicate → Statement
-Unless S P Q = ⟦ (AND P (NOT Q)) ⟧a ⇛ (PCWP (S , OR P Q))
+Unless S P Q = ⟦ (P △ (⌝ Q)) ⟧a ⇛ (PCWP (S , P ▽ Q))
 
 infix 4 _▷[_]_
 _▷[_]_ : Predicate → ParallelProgram → Predicate → Statement
@@ -198,11 +198,11 @@ impliesUnlessRight q⇒r p▷[s]q (p , ¬r) =
 -- ... | inj₁ p_ ∷ rest = inj₁ p_ ∷ impliesUnlessRight q⇒r (lessUnless p▷[s]q) (p , ⌝r)
 -- ... | inj₂ q_ ∷ rest = (inj₂ (q⇒r q_ )) ∷ impliesUnlessRight q⇒r (lessUnless p▷[s]q) (p , ⌝r)
 
-weakenUnlessRight' : Q ⇒ R → (P ▷[ S ] Q) → (P ▷[ S ] (OR Q R))
+weakenUnlessRight' : Q ⇒ R → (P ▷[ S ] Q) → (P ▷[ S ] (Q ▽ R))
 weakenUnlessRight' q⇒r p∧¬q⇛pcwp (p , ¬_q∨r_) =
   impliesPCWP weakenOrRight (p∧¬q⇛pcwp (p , (¬_q∨r_ ∘ inj₁)))
 
-weakenUnlessRight : (P ▷[ S ] Q) → (P ▷[ S ] (OR Q R))
+weakenUnlessRight : (P ▷[ S ] Q) → (P ▷[ S ] (Q ▽ R))
 weakenUnlessRight = impliesUnlessRight weaken
 
 -- weakenUnlessRight : (P ▷[ S ] Q) → (P ▷[ S ] (OR Q R))
@@ -211,8 +211,8 @@ weakenUnlessRight = impliesUnlessRight weaken
   -- λ { (p , ¬_q∨r_) → impliesPCWP {OR P Q} weakenOrRight (p∧¬q⇛pcwp (p , (λ q → ¬_q∨r_ (inj₁ q)) }
 
 unlessDisjunctive : ((P ▷[ S ] R) × (Q ▷[ S ] R)) → (P ▽ Q ▷[ S ] R)
-unlessDisjunctive (P▷[S]R , Q▷[S]R) (inj₁ p , ⌝r) = impliesPCWP (impliesOrLeft weaken) (P▷[S]R (p , ⌝r))
-unlessDisjunctive (P▷[S]R , Q▷[S]R) (inj₂ q , ⌝r) = impliesPCWP (impliesOrLeft (orCommutative ∘ weaken)) (Q▷[S]R (q , ⌝r))
+unlessDisjunctive (p▷[s]r , q▷[s]r) (inj₁ p , ⌝r) = impliesPCWP (impliesOrLeft weaken) (p▷[s]r (p , ⌝r))
+unlessDisjunctive (p▷[s]r , q▷[s]r) (inj₂ q , ⌝r) = impliesPCWP (impliesOrLeft (orCommutative ∘ weaken)) (q▷[s]r (q , ⌝r))
 
 -- FALSE
 -- impliesUnlessLeft : P ⇒ Q → Q ▷[ S ] R → P ▷[ S ] R
@@ -264,7 +264,7 @@ _↦[_]_ P S Q = Ensures S P Q
 data LeadsTo : ParallelProgram → Predicate → Predicate → Statement where
   FromEnsures : Ensures S P Q → LeadsTo S P Q
   Transitivity : (LeadsTo S P Q × LeadsTo S Q R) → LeadsTo S P R
-  Disjunctivity : ((LeadsTo S P R) × (LeadsTo S Q R)) → LeadsTo S (OR P Q) R
+  Disjunctivity : ((LeadsTo S P R) × (LeadsTo S Q R)) → LeadsTo S (P ▽ Q) R
 
 infix 4 _↪[_]_
 _↪[_]_ : Predicate → ParallelProgram → Predicate → Statement
@@ -294,9 +294,9 @@ pspFromEnsures₁ : P ▷[ S ] Q → R ▷[ S ] B → (P △ R) ▷[ S ] (Q △ 
 pspFromEnsures₁ p▷[s]q r▷[s]b _p△r_△⌝_q△r▽b_@((p , r) , ⌝_q△r▽b_) with (notOrToAndNotNot ⌝_q△r▽b_)
 ... | ⌝_q△r_ , ⌝b with (r▷[s]b (r , ⌝b))
 ...   | [] = []
-...   | inj₁ r_ ∷ rest with (p▷[s]q (p , λ q → ⌝_q△r_ (q , r)))
-...     | inj₁ p_ ∷ rest' = inj₁ (p_ , r_) ∷ pspFromEnsures₁ (lessUnless p▷[s]q) (lessUnless r▷[s]b) _p△r_△⌝_q△r▽b_
-...     | inj₂ q_ ∷ rest' = inj₂ (inj₁ (q_ , r_)) ∷ pspFromEnsures₁ (lessUnless p▷[s]q) (lessUnless r▷[s]b) _p△r_△⌝_q△r▽b_
+...   | inj₁ r' ∷ rest with (p▷[s]q (p , λ q → ⌝_q△r_ (q , r)))
+...     | inj₁ p' ∷ rest' = inj₁ (p' , r') ∷ pspFromEnsures₁ (lessUnless p▷[s]q) (lessUnless r▷[s]b) _p△r_△⌝_q△r▽b_
+...     | inj₂ q' ∷ rest' = inj₂ (inj₁ (q' , r')) ∷ pspFromEnsures₁ (lessUnless p▷[s]q) (lessUnless r▷[s]b) _p△r_△⌝_q△r▽b_
 pspFromEnsures₁ p▷[s]q r▷[s]b _p△r_△⌝_q△r▽b_@((p , r) , ⌝_q△r▽b_) | ⌝_q△r_ , ⌝b -- ...
       | inj₂ b_ ∷ rest = inj₂ (inj₂ b_) ∷ pspFromEnsures₁ (lessUnless p▷[s]q) (lessUnless r▷[s]b) _p△r_△⌝_q△r▽b_
 
@@ -306,30 +306,28 @@ pspFromEnsures₂ {P} {S = ci ∷ cis} {Q} {R} {B} p▷[s]q r▷[s]b (here p△�
     f : ⟦ (P △ R) △ (⌝ (Q △ R ▽ B)) ⟧a ⇛ CWP (ci , Q △ R ▽ B)
     f ((p , r) , ⌝_q△r▽b_) with (notOrToAndNotNot ⌝_q△r▽b_)
     ... | ⌝_q△r_ , ⌝b with (r▷[s]b (r , ⌝b))
-    ...   | inj₁ r_ ∷ rest with (p▷[s]q (p , λ q → ⌝_q△r_ (q , r)))
-    -- ...     | inj₁ p_ ∷ rest' = inj₁ (? , r_)
-    -- ...     | inj₁ p_ ∷ rest' = inj₁ ((p△⌝q⇛cwp (p , (λ x → ⌝_q△r▽b_ (inj₁ (x , r))))) , r_)
-    ...     | inj₁ p_ ∷ rest' = inj₁ (p△⌝q⇛cwp (p , (λ q → ⌝_q△r_ (q , r))) , r_)
-    ...     | inj₂ q_ ∷ rest' = inj₁ (q_ , r_)
+    ...   | inj₁ r' ∷ rest with (p▷[s]q (p , λ q → ⌝_q△r_ (q , r)))
+    ...     | inj₁ p' ∷ rest' = inj₁ (p△⌝q⇛cwp (p , (λ q → ⌝_q△r_ (q , r))) , r')
+    ...     | inj₂ q' ∷ rest' = inj₁ (q' , r')
     f ((p , r) , ⌝_q△r▽b_) | ⌝_q△r_ , ⌝b -- ...
           | inj₂ b_ ∷ rest = inj₂ b_
 pspFromEnsures₂ p▷[s]q r▷[s]b (there rest) = there (pspFromEnsures₂ (lessUnless p▷[s]q) (lessUnless r▷[s]b) rest)
 
 pspFromEnsures : P ↦[ S ] Q → R ▷[ S ] B → (P △ R) ↦[ S ] (Q △ R ▽ B)
-pspFromEnsures (P▷[S]Q , P↣[S]Q) R▷[S]B = (pspFromEnsures₁ P▷[S]Q R▷[S]B , pspFromEnsures₂ P▷[S]Q R▷[S]B P↣[S]Q)
+pspFromEnsures (p▷[s]q , p↣[s]q) r▷[s]b = (pspFromEnsures₁ p▷[s]q r▷[s]b , pspFromEnsures₂ p▷[s]q r▷[s]b p↣[s]q)
 
 --
 
 pspFromTransitivity : (P ↪[ S ] Q₁ × Q₁ ↪[ S ] Q) → R ▷[ S ] B → (P △ R ↪[ S ] Q₁ × Q₁ ↪[ S ] (Q △ R) ▽ B)
-pspFromTransitivity (P↪[S]Q₁ , Q₁↪[S]Q) R▷[S]B = ({!   !} , {!   !})
+pspFromTransitivity (p↪[s]q₁ , q₁↪[s]q) r▷[s]b = ({!   !} , {!   !})
 
 --
 
 pspFromDisjunctivity : (P ↪[ S ] Q₁ × Q ↪[ S ] Q₁) → R ▷[ S ] B → ((P ▽ Q) △ R) ↪[ S ] (Q₁ △ R ▽ B)
-pspFromDisjunctivity (p₁↪[S]Q₁ , p₂↪[S]Q₁) R▷[S]B = {!   !}
+pspFromDisjunctivity (p₁↪[s]q₁ , p₂↪[s]q₁) r▷[s]b = {!   !}
 
 
 PSP : ((P ↪[ S ] Q) × (R ▷[ S ] B)) → (P △ R) ↪[ S ] ((Q △ R) ▽ B)
-PSP (FromEnsures ensures , R▷[S]B) = FromEnsures (pspFromEnsures ensures R▷[S]B)
-PSP (Transitivity transitivity , R▷[S]B) = Transitivity (pspFromTransitivity transitivity R▷[S]B)
-PSP (Disjunctivity disjunctivity , R▷[S]B) = pspFromDisjunctivity disjunctivity R▷[S]B
+PSP (FromEnsures ensures , r▷[s]b) = FromEnsures (pspFromEnsures ensures r▷[s]b)
+PSP (Transitivity transitivity , r▷[s]b) = Transitivity (pspFromTransitivity transitivity r▷[s]b)
+PSP (Disjunctivity disjunctivity , r▷[s]b) = pspFromDisjunctivity disjunctivity r▷[s]b
