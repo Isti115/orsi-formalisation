@@ -18,8 +18,9 @@ variable
   A A₁ A₂ A₃ a b : Assertion
   c d : Condition
   i : Instruction
-  ci : ConditionalInstruction
-  cis S : ParallelProgram
+  s0 ci : ConditionalInstruction
+  cis : List ConditionalInstruction
+  S : ParallelProgram
   st : State
   W X Y Z : Set
 
@@ -156,14 +157,14 @@ CWP : (ConditionalInstruction × Predicate) → Assertion
 CWP (ci , P) = λ st → (⟦ ci ⟧ci st) ⊢ P
 
 PCWP : (ParallelProgram × Predicate) → Assertion
-PCWP (S , P) = λ st → All (λ ci → st ⊩ (CWP (ci , P))) S
+PCWP ((s0 , S) , P) = λ st → All (λ ci → st ⊩ (CWP (ci , P))) S
 
 --
 
 impliesCWP : P ⇒ Q → (CWP (ci , P)) ⇛ (CWP (ci , Q))
 impliesCWP p⇒q cwp = p⇒q cwp
 
-lessPCWP : PCWP ((ci ∷ cis) , P) ⇛ PCWP (cis , P)
+lessPCWP : PCWP ((s0 , (ci ∷ cis)) , P) ⇛ PCWP ((s0 , cis) , P)
 lessPCWP (ci_prf ∷ cis_prfs) = cis_prfs
 
 -- morePCWP : ⟦ CWP (ci , P) ⟧a → PCWP (cis , P) ⇛ PCWP ((ci ∷ cis) , P)
@@ -173,7 +174,7 @@ impliesPCWP : P ⇒ Q → PCWP (S , P) ⇛ PCWP (S , Q)
 impliesPCWP p⇒q [] = []
 impliesPCWP p⇒q (ci_prf ∷ cis_prfs) = p⇒q ci_prf ∷ impliesPCWP p⇒q cis_prfs
 
-lessImpliesPCWP : (⟦ P ⟧a ⇛ (PCWP ((ci ∷ cis) , Q))) → (⟦ P ⟧a ⇛ (PCWP (cis , Q)))
+lessImpliesPCWP : (⟦ P ⟧a ⇛ (PCWP ((s0 , (ci ∷ cis)) , Q))) → (⟦ P ⟧a ⇛ (PCWP ((s0 , cis) , Q)))
 lessImpliesPCWP p⇛pcwp = λ p → lessPCWP (p⇛pcwp p)
 
 --
@@ -185,7 +186,7 @@ infix 4 _▷[_]_
 _▷[_]_ : Predicate → ParallelProgram → Predicate → Statement
 _▷[_]_ P S Q = Unless S P Q
 
-lessUnless : (P ▷[ ci ∷ cis ] Q) → (P ▷[ cis ] Q)
+lessUnless : (P ▷[ s0 , ci ∷ cis ] Q) → (P ▷[ s0 , cis ] Q)
 lessUnless p▷[ci∷cis]q = λ p△⌝q → lessPCWP (p▷[ci∷cis]q p△⌝q)
 
 impliesUnlessRight : Q ⇒ R → (P ▷[ S ] Q) → (P ▷[ S ] R)
@@ -224,7 +225,7 @@ unlessDisjunctive (p▷[s]r , q▷[s]r) (inj₂ q , ⌝r) = impliesPCWP (implies
 --
 
 Progress : ParallelProgram → Predicate → Predicate → Statement
-Progress S P Q = (Any (λ ci → ⟦ P △ ⌝ Q ⟧a ⇛ (CWP (ci , Q))) S)
+Progress (s0 , cis) P Q = (Any (λ ci → ⟦ P △ ⌝ Q ⟧a ⇛ (CWP (ci , Q))) cis)
 
 infix 4 _↣[_]_
 _↣[_]_ : Predicate → ParallelProgram → Predicate → Statement
@@ -232,6 +233,7 @@ _↣[_]_ P S Q = Progress S P Q
 
 --
 
+-- "Biztosítja"
 Ensures : ParallelProgram → Predicate → Predicate → Statement
 Ensures S P Q = (Unless S P Q × Progress S P Q)
 
@@ -261,6 +263,7 @@ _↦[_]_ P S Q = Ensures S P Q
 
 --
 
+-- "Elkerülhetetlen / Inevitable"
 data LeadsTo : ParallelProgram → Predicate → Predicate → Statement where
   FromEnsures : Ensures S P Q → LeadsTo S P Q
   Transitivity : (LeadsTo S P Q × LeadsTo S Q R) → LeadsTo S P R
@@ -301,7 +304,7 @@ pspFromEnsures₁ p▷[s]q r▷[s]b _p△r_△⌝_q△r▽b_@((p , r) , ⌝_q△
       | inj₂ b_ ∷ rest = inj₂ (inj₂ b_) ∷ pspFromEnsures₁ (lessUnless p▷[s]q) (lessUnless r▷[s]b) _p△r_△⌝_q△r▽b_
 
 pspFromEnsures₂ : P ▷[ S ] Q → R ▷[ S ] B → P ↣[ S ] Q → Progress S (P △ R) (Q △ R ▽ B)
-pspFromEnsures₂ {P} {S = ci ∷ cis} {Q} {R} {B} p▷[s]q r▷[s]b (here p△⌝q⇛cwp) = here f
+pspFromEnsures₂ {P} {S = (s0 , ci ∷ cis)} {Q} {R} {B} p▷[s]q r▷[s]b (here p△⌝q⇛cwp) = here f
   where
     f : ⟦ (P △ R) △ (⌝ (Q △ R ▽ B)) ⟧a ⇛ CWP (ci , Q △ R ▽ B)
     f ((p , r) , ⌝_q△r▽b_) with (notOrToAndNotNot ⌝_q△r▽b_)
@@ -318,8 +321,8 @@ pspFromEnsures (p▷[s]q , p↣[s]q) r▷[s]b = (pspFromEnsures₁ p▷[s]q r▷
 
 --
 
-pspFromTransitivity : (P ↪[ S ] Q₁ × Q₁ ↪[ S ] Q) → R ▷[ S ] B → (P △ R ↪[ S ] Q₁ × Q₁ ↪[ S ] (Q △ R) ▽ B)
-pspFromTransitivity (p↪[s]q₁ , q₁↪[s]q) r▷[s]b = ({!   !} , {!   !})
+pspFromTransitivity : (P ↪[ S ] Q₁ × Q₁ ↪[ S ] Q) → R ▷[ S ] B → (P △ R) ↪[ S ] ((Q △ R) ▽ B)
+pspFromTransitivity (p↪[s]q₁ , q₁↪[s]q) r▷[s]b = {!   !}
 
 --
 
@@ -329,5 +332,5 @@ pspFromDisjunctivity (p₁↪[s]q₁ , p₂↪[s]q₁) r▷[s]b = {!   !}
 
 PSP : ((P ↪[ S ] Q) × (R ▷[ S ] B)) → (P △ R) ↪[ S ] ((Q △ R) ▽ B)
 PSP (FromEnsures ensures , r▷[s]b) = FromEnsures (pspFromEnsures ensures r▷[s]b)
-PSP (Transitivity transitivity , r▷[s]b) = Transitivity (pspFromTransitivity transitivity r▷[s]b)
+PSP (Transitivity transitivity , r▷[s]b) = pspFromTransitivity transitivity r▷[s]b
 PSP (Disjunctivity disjunctivity , r▷[s]b) = pspFromDisjunctivity disjunctivity r▷[s]b

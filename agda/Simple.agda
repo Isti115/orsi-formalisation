@@ -47,12 +47,19 @@ data Expression : Set where
 
 data Instruction : Set where
   SKIP : Instruction
-  Assignment : Vars → Expression → Instruction
+  Assignment : List (Vars × Expression) → Instruction
+
+assign : List (Vars × Expression) → State → State → State
+assign [] st₀ st = st
+assign ((var , value) ∷ rest) st₀ st =
+  let
+    newState = λ x → if ⌊ x Data.Nat.≟ var ⌋ then ⟦ value ⟧e st₀ else st x
+  in
+    assign rest st₀ newState
 
 ⟦_⟧i : Instruction → State → State
 ⟦ SKIP ⟧i st = st
-⟦ Assignment var value ⟧i st =
-  λ x → if ⌊ x Data.Nat.≟ var ⌋ then ⟦ value ⟧e st else st x
+⟦ Assignment varExpressionPairs ⟧i st = assign varExpressionPairs st st
 
 data Predicate : Set where
   TRUE : Predicate
@@ -76,7 +83,7 @@ ConditionalInstruction : Set
 ConditionalInstruction = (Predicate × Instruction)
 
 ParallelProgram : Set
-ParallelProgram = List ConditionalInstruction
+ParallelProgram = (ConditionalInstruction × List ConditionalInstruction)
 
 Assertion : Set₁
 Assertion = State → Set
