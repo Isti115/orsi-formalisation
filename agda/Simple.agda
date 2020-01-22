@@ -103,16 +103,16 @@ module Program (VarTypes : ℕ → Types) where
     LT : Expression Nat → Expression Nat → Predicate
     GT : Expression Nat → Expression Nat → Predicate
 
-  ⌝_ : Predicate → Predicate
-  ⌝_ = NOT
-
-  infixr 6 _△_
-  _△_ : Predicate → Predicate → Predicate
-  _△_ = AND
-
-  infixr 5 _▽_
-  _▽_ : Predicate → Predicate → Predicate
-  _▽_ = OR
+  -- ⌝_ : Predicate → Predicate
+  -- ⌝_ = NOT
+  --
+  -- infixr 6 _△_
+  -- _△_ : Predicate → Predicate → Predicate
+  -- _△_ = AND
+  --
+  -- infixr 5 _▽_
+  -- _▽_ : Predicate → Predicate → Predicate
+  -- _▽_ = OR
 
   ConditionalInstruction : Set
   ConditionalInstruction = (Predicate × Instruction)
@@ -260,3 +260,5 @@ module Program (VarTypes : ℕ → Types) where
 
   _⊫_ : State → Condition → Bool
   st ⊫ c = c st
+
+-- module NatOnly = Program (λ n → Nat)

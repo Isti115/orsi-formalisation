@@ -3,6 +3,8 @@ module Statements where
 open import Data.Unit
 open import Data.Bool
 open import Data.Bool.Properties
+-- open import Data.Nat
+open import Data.Empty
 open import Data.Product
 open import Data.Sum
 open import Data.List
@@ -12,7 +14,26 @@ open import Relation.Binary.PropositionalEquality as Eq
 open import Function
 
 open import Simple
-open Simple.Program (λ n → Nat)
+open module NatOnly = Simple.Program (λ n → Nat)
+
+⌝_ : Predicate → Predicate
+⌝_ = NOT
+
+infixr 6 _△_
+_△_ : Predicate → Predicate → Predicate
+_△_ = AND
+
+infixr 5 _▽_
+_▽_ : Predicate → Predicate → Predicate
+_▽_ = OR
+
+-- open Simple.NatOnly using (NatOnly)
+
+-- postulate
+--   VarTypes : ℕ → Types
+--
+-- module Example = Simple.Program VarTypes
+-- open Example
 
 variable
   P P₁ Q Q₁ R B :  Predicate
@@ -30,9 +51,18 @@ Statement = Set
 
 --
 
+
+-- Implication
 infix 4 _⇒_
 _⇒_ : Predicate → Predicate → Statement
 P ⇒ Q = ∀{st} → st ⊢ P → st ⊢ Q
+
+_⇐_ : Predicate → Predicate → Statement
+P ⇐ Q = Q ⇒ P
+
+-- Equivalence
+_⇔_ : Predicate → Predicate → Statement
+P ⇔ Q = (P ⇒ Q) × (Q ⇒ P)
 
 infix 4 _⇛_
 _⇛_ : Assertion → Assertion → Statement
@@ -121,6 +151,61 @@ strenghtenImpliesLeft p⇒q p∧r = p⇒q (proj₁ p∧r)
 
 weakenImpliesRight : (P ⇒ Q) → (P ⇒ Q ▽ R)
 weakenImpliesRight p⇒q p = inj₁ (p⇒q p)
+
+-- Distributivity
+
+andDistributiveToLeft : (P △ (Q ▽ R)) ⇒ ((P △ Q) ▽ (P △ R))
+andDistributiveToLeft (p , inj₁ q) = inj₁ (p , q)
+andDistributiveToLeft (p , inj₂ r) = inj₂ (p , r)
+
+andDistributiveFromLeft : (P △ (Q ▽ R)) ⇐ ((P △ Q) ▽ (P △ R))
+andDistributiveFromLeft (inj₁ (p , q)) = (p , inj₁ q)
+andDistributiveFromLeft (inj₂ (p , r)) = (p , inj₂ r)
+
+andDistributiveLeft : (P △ (Q ▽ R)) ⇔ ((P △ Q) ▽ (P △ R))
+andDistributiveLeft = (andDistributiveToLeft , andDistributiveFromLeft)
+
+--
+
+andDistributiveToRight : ((P ▽ Q) △ R) ⇒ ((P △ R) ▽ (Q △ R))
+andDistributiveToRight (inj₁ p , r) = inj₁ (p , r)
+andDistributiveToRight (inj₂ q , r) = inj₂ (q , r)
+
+andDistributiveFromRight : ((P ▽ Q) △ R) ⇐ ((P △ R) ▽ (Q △ R))
+andDistributiveFromRight (inj₁ (p , r)) = (inj₁ p , r)
+andDistributiveFromRight (inj₂ (q , r)) = (inj₂ q , r)
+
+andDistributiveRight : ((P ▽ Q) △ R) ⇔ ((P △ R) ▽ (Q △ R))
+andDistributiveRight = (andDistributiveToRight , andDistributiveFromRight)
+
+--
+
+orDistributiveToLeft : (P ▽ (Q △ R)) ⇒ ((P ▽ Q) △ (P ▽ R))
+orDistributiveToLeft (inj₁ p) = (inj₁ p , inj₁ p)
+orDistributiveToLeft (inj₂ (q , r)) = (inj₂ q , inj₂ r)
+
+orDistributiveFromLeft : (P ▽ (Q △ R)) ⇐ ((P ▽ Q) △ (P ▽ R))
+orDistributiveFromLeft (inj₁ p , p∨r) = inj₁ p
+orDistributiveFromLeft (p∨q , inj₁ p) = inj₁ p
+orDistributiveFromLeft (inj₂ q , inj₂ r) = inj₂ (q , r)
+
+orDistributiveLeft : (P ▽ (Q △ R)) ⇔ ((P ▽ Q) △ (P ▽ R))
+orDistributiveLeft = (orDistributiveToLeft , orDistributiveFromLeft)
+
+--
+
+orDistributiveToRight : ((P △ Q) ▽ R) ⇒ ((P ▽ R) △ (Q ▽ R))
+orDistributiveToRight (inj₁ (p , q)) = (inj₁ p , inj₁ q)
+orDistributiveToRight (inj₂ r) = (inj₂ r , inj₂ r)
+
+orDistributiveFromRight : ((P △ Q) ▽ R) ⇐ ((P ▽ R) △ (Q ▽ R))
+orDistributiveFromRight (inj₁ p , inj₁ q) = inj₁ (p , q)
+orDistributiveFromRight (p∨r , inj₂ r) = inj₂ r
+orDistributiveFromRight (inj₂ r , q∨r) = inj₂ r
+
+orDistributiveRight : ((P △ Q) ▽ R) ⇔ ((P ▽ R) △ (Q ▽ R))
+orDistributiveRight = (orDistributiveToRight , orDistributiveFromRight)
+
 
 -- De Morgan
 
