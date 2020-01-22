@@ -12,9 +12,10 @@ open import Relation.Binary.PropositionalEquality as Eq
 open import Function
 
 open import Simple
+open Simple.Program (λ n → Nat)
 
 variable
-  P P₁ Q Q₁ R B : Predicate
+  P P₁ Q Q₁ R B :  Predicate
   A A₁ A₂ A₃ a b : Assertion
   c d : Condition
   i : Instruction
