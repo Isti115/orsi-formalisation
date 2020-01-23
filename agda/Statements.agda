@@ -52,7 +52,7 @@ Statement = Set
 --
 
 
--- Implication
+-- Predicate implication
 infix 4 _⇒_
 _⇒_ : Predicate → Predicate → Statement
 P ⇒ Q = ∀{st} → st ⊢ P → st ⊢ Q
@@ -60,13 +60,39 @@ P ⇒ Q = ∀{st} → st ⊢ P → st ⊢ Q
 _⇐_ : Predicate → Predicate → Statement
 P ⇐ Q = Q ⇒ P
 
--- Equivalence
+⇒-⌝-Reverse : (P ⇒ Q) → ((⌝ Q) ⇒ (⌝ P))
+⇒-⌝-Reverse p⇒q = λ ⌝q p → ⌝q (p⇒q p)
+
+⇐-⌝-Reverse : (P ⇐ Q) → ((⌝ Q) ⇐ (⌝ P))
+⇐-⌝-Reverse p⇐q = λ ⌝p q → ⌝p (p⇐q q)
+
+
+-- Predicate Equivalence
 _⇔_ : Predicate → Predicate → Statement
-P ⇔ Q = (P ⇒ Q) × (Q ⇒ P)
+P ⇔ Q = (P ⇒ Q) × (P ⇐ Q)
+
+⇔Symmetric : (P ⇔ Q) → (Q ⇔ P)
+⇔Symmetric (p⇒q , p⇐q) = (p⇐q , p⇒q)
+
+⇔-⌝-Compatible : (P ⇔ Q) → ((⌝ P) ⇔ (⌝ Q))
+⇔-⌝-Compatible (p⇒q , p⇐q) = ((⇒-⌝-Reverse p⇐q) , (⇒-⌝-Reverse p⇒q))
+
+
+-- Assertion implication
 
 infix 4 _⇛_
 _⇛_ : Assertion → Assertion → Statement
 a ⇛ b = ∀{st} → st ⊩ a → st ⊩ b
+
+_⇚_ : Assertion → Assertion → Statement
+a ⇚ b = b ⇛ a
+
+_⇚⇛_ : Assertion → Assertion → Statement
+a ⇚⇛ b = (a ⇛ b) × (a ⇚ b)
+
+⇚⇛-Symmetric : (a ⇚⇛ b) → (a ⇚⇛ b)
+⇚⇛-Symmetric (a⇛b , b⇚a) = (a⇛b , b⇚a)
+
 
 --
 
@@ -186,7 +212,7 @@ orDistributiveToLeft (inj₂ (q , r)) = (inj₂ q , inj₂ r)
 
 orDistributiveFromLeft : (P ▽ (Q △ R)) ⇐ ((P ▽ Q) △ (P ▽ R))
 orDistributiveFromLeft (inj₁ p , p∨r) = inj₁ p
-orDistributiveFromLeft (p∨q , inj₁ p) = inj₁ p
+orDistributiveFromLeft (inj₂ q , inj₁ p) = inj₁ p
 orDistributiveFromLeft (inj₂ q , inj₂ r) = inj₂ (q , r)
 
 orDistributiveLeft : (P ▽ (Q △ R)) ⇔ ((P ▽ Q) △ (P ▽ R))
@@ -199,9 +225,9 @@ orDistributiveToRight (inj₁ (p , q)) = (inj₁ p , inj₁ q)
 orDistributiveToRight (inj₂ r) = (inj₂ r , inj₂ r)
 
 orDistributiveFromRight : ((P △ Q) ▽ R) ⇐ ((P ▽ R) △ (Q ▽ R))
-orDistributiveFromRight (inj₁ p , inj₁ q) = inj₁ (p , q)
-orDistributiveFromRight (p∨r , inj₂ r) = inj₂ r
 orDistributiveFromRight (inj₂ r , q∨r) = inj₂ r
+orDistributiveFromRight (inj₁ p , inj₂ r) = inj₂ r
+orDistributiveFromRight (inj₁ p , inj₁ q) = inj₁ (p , q)
 
 orDistributiveRight : ((P △ Q) ▽ R) ⇔ ((P ▽ R) △ (Q ▽ R))
 orDistributiveRight = (orDistributiveToRight , orDistributiveFromRight)
@@ -239,6 +265,12 @@ anyImplies fa→ga (there tl) = there (anyImplies fa→ga tl)
 WP : (Instruction × Predicate) → Assertion
 WP (i , P) = λ st → (⟦ i ⟧i st) ⊢ P
 
+WP-⇒-Compatible : P ⇒ Q → WP (i , P) ⇛ WP (i , Q)
+WP-⇒-Compatible p⇒q wp = p⇒q wp
+
+WP-⇐-Compatible : P ⇐ Q → WP (i , P) ⇚ WP (i , Q)
+WP-⇐-Compatible p⇐q wp = p⇐q wp
+
 CWP : (ConditionalInstruction × Predicate) → Assertion
 CWP (ci , P) = λ st → (⟦ ci ⟧ci st) ⊢ P
 
@@ -271,6 +303,14 @@ Unless S P Q = ⟦ (P △ (⌝ Q)) ⟧a ⇛ (PCWP (S , P ▽ Q))
 infix 4 _▷[_]_
 _▷[_]_ : Predicate → ParallelProgram → Predicate → Statement
 _▷[_]_ P S Q = Unless S P Q
+
+
+▷-⇔-left : P ⇔ Q → P ▷[ S ] R → Q ▷[ S ] R
+▷-⇔-left (p⇒q , p⇐q) p▷[s]r (q , ¬r) =
+  impliesPCWP
+    (impliesOrLeft p⇒q)
+    (p▷[s]r (p⇐q q , ¬r))
+
 
 lessUnless : (P ▷[ s0 , ci ∷ cis ] Q) → (P ▷[ s0 , cis ] Q)
 lessUnless p▷[ci∷cis]q = λ p△⌝q → lessPCWP (p▷[ci∷cis]q p△⌝q)
@@ -308,6 +348,14 @@ unlessDisjunctive (p▷[s]r , q▷[s]r) (inj₂ q , ⌝r) = impliesPCWP (implies
 -- ... | inj₁ q_ ∷ rest = {!   !} ∷ (impliesUnlessLeft p⇒q (lessUnless q▷[s]r) ((p , ⌝r)))
 -- ... | inj₂ r_ ∷ rest = (inj₂ r_) ∷ (impliesUnlessLeft p⇒q (lessUnless q▷[s]r) ((p , ⌝r)))
 
+unlessReflexive : P ▷[ S ] P
+-- unlessReflexive : {P : Predicate} → (P ▷[ S ] P)
+unlessReflexive (p , ¬p) = ⊥-elim (¬p p)
+
+unlessFromImplies : (P ⇒ Q) → (P ▷[ S ] Q)
+-- unlessFromImplies p⇒q (p , ¬q) = ⊥-elim (¬q (p⇒q p))
+unlessFromImplies p⇒q = impliesUnlessRight p⇒q unlessReflexive
+
 --
 
 Progress : ParallelProgram → Predicate → Predicate → Statement
@@ -316,6 +364,13 @@ Progress (s0 , cis) P Q = (Any (λ ci → ⟦ P △ ⌝ Q ⟧a ⇛ (CWP (ci , Q)
 infix 4 _↣[_]_
 _↣[_]_ : Predicate → ParallelProgram → Predicate → Statement
 _↣[_]_ P S Q = Progress S P Q
+
+
+↣-⇔-left : P ⇔ Q → P ↣[ S ] R → Q ↣[ S ] R
+↣-⇔-left (p⇒q , p⇐q) p↣[s]r =
+  anyImplies
+    (λ { f (q , ⌝r) → f (p⇐q q , ⌝r) })
+    p↣[s]r
 
 --
 
@@ -326,6 +381,10 @@ Ensures S P Q = (Unless S P Q × Progress S P Q)
 infix 4 _↦[_]_
 _↦[_]_ : Predicate → ParallelProgram → Predicate → Statement
 _↦[_]_ P S Q = Ensures S P Q
+
+
+⇔-↦-left : P ⇔ Q → P ↦[ S ] R → Q ↦[ S ] R
+⇔-↦-left p⇔q (p▷[s]r , p↣[s]r) = (▷-⇔-left p⇔q p▷[s]r , ↣-⇔-left p⇔q p↣[s]r)
 
 -- FALSE
 -- impliesEnsuresLeft : P ⇒ Q → P ↦[ S ] R → Q ↦[ S ] R
@@ -358,6 +417,13 @@ data LeadsTo : ParallelProgram → Predicate → Predicate → Statement where
 infix 4 _↪[_]_
 _↪[_]_ : Predicate → ParallelProgram → Predicate → Statement
 _↪[_]_ P S Q = LeadsTo S P Q
+
+
+⇔-↪-left : P ⇔ Q → P ↪[ S ] R → Q ↪[ S ] R
+⇔-↪-left p⇔q (FromEnsures p↦[s]r) = FromEnsures (⇔-↦-left p⇔q p↦[s]r)
+-- ⇔-↪-left p⇔q (Transitivity (p↪[s]p₁ , p₁↪[s]r)) = Transitivity (⇔-↪-left p⇔q p↪[s]p₁ , p₁↪[s]r)
+⇔-↪-left p⇔q (Transitivity (p↪[s]q , q↪[s]r)) = Transitivity (⇔-↪-left p⇔q p↪[s]q , q↪[s]r)
+⇔-↪-left p⇔q (Disjunctivity (p↪[s]r , q↪[s]r)) = {!Disjunctivity {} (? , ?)!}
 
 -- impliesLeadsToLeft : P ⇒ Q → P ↪[ S ] R → Q ↪[ S ] R
 -- impliesLeadsToLeft p⇒q (FromEnsures ensures) = FromEnsures (impliesEnsuresLeft p⇒q ensures)
@@ -407,16 +473,20 @@ pspFromEnsures (p▷[s]q , p↣[s]q) r▷[s]b = (pspFromEnsures₁ p▷[s]q r▷
 
 --
 
-pspFromTransitivity : (P ↪[ S ] Q₁ × Q₁ ↪[ S ] Q) → R ▷[ S ] B → (P △ R) ↪[ S ] ((Q △ R) ▽ B)
+pspFromTransitivity : (P ↪[ S ] P₁ × P₁ ↪[ S ] Q) → R ▷[ S ] B → (P △ R) ↪[ S ] ((Q △ R) ▽ B)
 pspFromTransitivity (p↪[s]q₁ , q₁↪[s]q) r▷[s]b = {!   !}
 
 --
 
-pspFromDisjunctivity : (P ↪[ S ] Q₁ × Q ↪[ S ] Q₁) → R ▷[ S ] B → ((P ▽ Q) △ R) ↪[ S ] (Q₁ △ R ▽ B)
-pspFromDisjunctivity (p₁↪[s]q₁ , p₂↪[s]q₁) r▷[s]b = {!   !}
-
-
 PSP : ((P ↪[ S ] Q) × (R ▷[ S ] B)) → (P △ R) ↪[ S ] ((Q △ R) ▽ B)
+
+pspFromDisjunctivity : (P ↪[ S ] Q × P₁ ↪[ S ] Q) → R ▷[ S ] B → ((P ▽ P₁) △ R) ↪[ S ] (Q △ R ▽ B)
+pspFromDisjunctivity {P} {S} {Q} {P₁} {R} (p₁↪[s]q₁ , p₂↪[s]q₁) r▷[s]b =
+  ⇔-↪-left {(P △ R) ▽ (P₁ △ R)} {(P ▽ P₁) △ R}
+    (⇔Symmetric andDistributiveRight)
+    (Disjunctivity (PSP (p₁↪[s]q₁ , r▷[s]b) , PSP (p₂↪[s]q₁ , r▷[s]b)))
+
+
 PSP (FromEnsures ensures , r▷[s]b) = FromEnsures (pspFromEnsures ensures r▷[s]b)
 PSP (Transitivity transitivity , r▷[s]b) = pspFromTransitivity transitivity r▷[s]b
 PSP (Disjunctivity disjunctivity , r▷[s]b) = pspFromDisjunctivity disjunctivity r▷[s]b
