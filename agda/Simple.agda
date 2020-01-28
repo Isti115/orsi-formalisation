@@ -120,6 +120,9 @@ module Program (VarTypes : ℕ → Types) where
   ParallelProgram : Set
   ParallelProgram = (ConditionalInstruction × List ConditionalInstruction)
 
+  NonEmpty : ParallelProgram → Set
+  NonEmpty (s0 , cis) = ¬ (cis ≡ [])
+
   Assertion : Set₁
   Assertion = State → Set
 

@@ -60,8 +60,14 @@ P ⇒ Q = ∀{st} → st ⊢ P → st ⊢ Q
 _⇐_ : Predicate → Predicate → Statement
 P ⇐ Q = Q ⇒ P
 
+⇒-Reflexive : P ⇒ P
+⇒-Reflexive p = p
+
 ⇒-⌝-Reverse : (P ⇒ Q) → ((⌝ Q) ⇒ (⌝ P))
 ⇒-⌝-Reverse p⇒q = λ ⌝q p → ⌝q (p⇒q p)
+
+⇐-Reflexive : P ⇐ P
+⇐-Reflexive p = p
 
 ⇐-⌝-Reverse : (P ⇐ Q) → ((⌝ Q) ⇐ (⌝ P))
 ⇐-⌝-Reverse p⇐q = λ ⌝p q → ⌝p (p⇐q q)
@@ -304,6 +310,12 @@ infix 4 _▷[_]_
 _▷[_]_ : Predicate → ParallelProgram → Predicate → Statement
 _▷[_]_ P S Q = Unless S P Q
 
+▷-Reflexive : P ▷[ S ] P
+-- ▷-Reflexive: {P : Predicate} → (P ▷[ S ] P)
+▷-Reflexive (p , ¬p) = ⊥-elim (¬p p)
+
+▷-from-⇒ : P ⇒ Q → P ▷[ S ] Q
+▷-from-⇒ p⇒q (p , ⌝q) = ⊥-elim (⌝q (p⇒q p))
 
 ▷-⇔-left : P ⇔ Q → P ▷[ S ] R → Q ▷[ S ] R
 ▷-⇔-left (p⇒q , p⇐q) p▷[s]r (q , ¬r) =
@@ -348,29 +360,39 @@ unlessDisjunctive (p▷[s]r , q▷[s]r) (inj₂ q , ⌝r) = impliesPCWP (implies
 -- ... | inj₁ q_ ∷ rest = {!   !} ∷ (impliesUnlessLeft p⇒q (lessUnless q▷[s]r) ((p , ⌝r)))
 -- ... | inj₂ r_ ∷ rest = (inj₂ r_) ∷ (impliesUnlessLeft p⇒q (lessUnless q▷[s]r) ((p , ⌝r)))
 
-unlessReflexive : P ▷[ S ] P
--- unlessReflexive : {P : Predicate} → (P ▷[ S ] P)
-unlessReflexive (p , ¬p) = ⊥-elim (¬p p)
-
 unlessFromImplies : (P ⇒ Q) → (P ▷[ S ] Q)
 -- unlessFromImplies p⇒q (p , ¬q) = ⊥-elim (¬q (p⇒q p))
-unlessFromImplies p⇒q = impliesUnlessRight p⇒q unlessReflexive
+unlessFromImplies p⇒q = impliesUnlessRight p⇒q ▷-Reflexive
 
 --
 
+-- "There exists a conditional instruction that moves from P△⌝Q to Q."
 Progress : ParallelProgram → Predicate → Predicate → Statement
-Progress (s0 , cis) P Q = (Any (λ ci → ⟦ P △ ⌝ Q ⟧a ⇛ (CWP (ci , Q))) cis)
+Progress (s0 , cis) P Q = Any (λ ci → ⟦ P △ ⌝ Q ⟧a ⇛ (CWP (ci , Q))) cis
 
 infix 4 _↣[_]_
 _↣[_]_ : Predicate → ParallelProgram → Predicate → Statement
 _↣[_]_ P S Q = Progress S P Q
 
+↣-NonEmpty : P ↣[ (s0 , cis) ] Q → NonEmpty (s0 , cis)
+↣-NonEmpty (here px) ()
+↣-NonEmpty (there x) ()
+
+↣-NonEmpty-Reflexive : NonEmpty S → P ↣[ S ] P
+-- ↣-NonEmpty-Reflexive nonEmptyS = ↣-NonEmpty-from-⇒ nonEmptyS ⇒-Reflexive
+↣-NonEmpty-Reflexive {s0 , []} nonEmptyS = ⊥-elim (nonEmptyS refl)
+↣-NonEmpty-Reflexive {s0 , ci ∷ cis} nonEmptyS = here (λ { (p , ⌝p) → ⊥-elim (⌝p p) })
+
+↣-⇐-left : P ⇐ Q → P ↣[ S ] R → Q ↣[ S ] R
+↣-⇐-left p⇐q p↣[s]r = anyImplies (λ { f (q , ⌝r) → f (p⇐q q , ⌝r) }) p↣[s]r
+
+↣-NonEmpty-from-⇒ : NonEmpty S → P ⇒ Q → P ↣[ S ] Q
+-- ↣-NonEmpty-from-⇒ {s0 , []} nonEmptyS p⇒q = ⊥-elim (nonEmptyS refl)
+-- ↣-NonEmpty-from-⇒ {s0 , x ∷ snd} nonEmptyS p⇒q = here (λ { (p , ⌝q) → ⊥-elim (⌝q (p⇒q p)) })
+↣-NonEmpty-from-⇒ nonEmptyS p⇒q = ↣-⇐-left p⇒q (↣-NonEmpty-Reflexive nonEmptyS)
 
 ↣-⇔-left : P ⇔ Q → P ↣[ S ] R → Q ↣[ S ] R
-↣-⇔-left (p⇒q , p⇐q) p↣[s]r =
-  anyImplies
-    (λ { f (q , ⌝r) → f (p⇐q q , ⌝r) })
-    p↣[s]r
+↣-⇔-left (p⇒q , p⇐q) p↣[s]r = ↣-⇐-left p⇐q p↣[s]r
 
 --
 
@@ -382,9 +404,17 @@ infix 4 _↦[_]_
 _↦[_]_ : Predicate → ParallelProgram → Predicate → Statement
 _↦[_]_ P S Q = Ensures S P Q
 
+↦-NonEmpty : P ↦[ S ] Q → NonEmpty S
+↦-NonEmpty (p▷[s]q , p↣[s]q) = ↣-NonEmpty p↣[s]q
 
-⇔-↦-left : P ⇔ Q → P ↦[ S ] R → Q ↦[ S ] R
-⇔-↦-left p⇔q (p▷[s]r , p↣[s]r) = (▷-⇔-left p⇔q p▷[s]r , ↣-⇔-left p⇔q p↣[s]r)
+↦-NonEmpty-Reflexive : NonEmpty S → P ↦[ S ] P
+↦-NonEmpty-Reflexive nonEmptyS = (▷-Reflexive , (↣-NonEmpty-Reflexive nonEmptyS))
+
+↦-NonEmpty-from-⇒ : NonEmpty S → P ⇒ Q → P ↦[ S ] Q
+↦-NonEmpty-from-⇒ nonEmptyS p⇒q = (▷-from-⇒ p⇒q , ↣-NonEmpty-from-⇒ nonEmptyS p⇒q)
+
+↦-⇔-left : P ⇔ Q → P ↦[ S ] R → Q ↦[ S ] R
+↦-⇔-left p⇔q (p▷[s]r , p↣[s]r) = (▷-⇔-left p⇔q p▷[s]r , ↣-⇔-left p⇔q p↣[s]r)
 
 -- FALSE
 -- impliesEnsuresLeft : P ⇒ Q → P ↦[ S ] R → Q ↦[ S ] R
@@ -418,12 +448,32 @@ infix 4 _↪[_]_
 _↪[_]_ : Predicate → ParallelProgram → Predicate → Statement
 _↪[_]_ P S Q = LeadsTo S P Q
 
+↪-NonEmpty : P ↪[ S ] Q → NonEmpty S
+↪-NonEmpty (FromEnsures p↦[s]q) = ↦-NonEmpty p↦[s]q
+↪-NonEmpty (Transitivity (p↪[s]p₁ , p₁↪[s]q)) = ↪-NonEmpty p₁↪[s]q
+↪-NonEmpty (Disjunctivity (p↪[s]q , p₁↪[s]q)) = ↪-NonEmpty p₁↪[s]q
 
-⇔-↪-left : P ⇔ Q → P ↪[ S ] R → Q ↪[ S ] R
-⇔-↪-left p⇔q (FromEnsures p↦[s]r) = FromEnsures (⇔-↦-left p⇔q p↦[s]r)
--- ⇔-↪-left p⇔q (Transitivity (p↪[s]p₁ , p₁↪[s]r)) = Transitivity (⇔-↪-left p⇔q p↪[s]p₁ , p₁↪[s]r)
-⇔-↪-left p⇔q (Transitivity (p↪[s]q , q↪[s]r)) = Transitivity (⇔-↪-left p⇔q p↪[s]q , q↪[s]r)
-⇔-↪-left p⇔q (Disjunctivity (p↪[s]r , q↪[s]r)) = {!Disjunctivity {} (? , ?)!}
+↪-NonEmpty-Reflexive : NonEmpty S → P ↪[ S ] P
+↪-NonEmpty-Reflexive nonEmptyS = FromEnsures (↦-NonEmpty-Reflexive nonEmptyS)
+
+↪-⇐-left : P ⇐ Q → P ↪[ S ] R → Q ↪[ S ] R
+↪-⇐-left p⇐q p↪[s]r = Transitivity (q↪[s]p , p↪[s]r)
+  where
+    nonEmptyS = ↪-NonEmpty p↪[s]r
+    q↦[s]p = ↦-NonEmpty-from-⇒ nonEmptyS p⇐q
+    q↪[s]p = FromEnsures q↦[s]p
+-- FromEnsures (↦-⇔-left p⇐q p↦[s]r)
+-- ↪-⇐-left p⇐q (Transitivity (p↪[s]q , q↪[s]r)) = {!!} -- Transitivity (↪-⇐-left p⇐q p↪[s]q , q↪[s]r)
+-- ↪-⇐-left p⇐q (Disjunctivity (p↪[s]r , q↪[s]r)) = {!Disjunctivity {} (? , ?)!}
+
+
+↪-⇔-left : P ⇔ Q → P ↪[ S ] R → Q ↪[ S ] R
+↪-⇔-left p⇔q = ↪-⇐-left (proj₂ p⇔q)
+-- ↪-⇔-left p⇔q (FromEnsures p↦[s]r) = FromEnsures (↦-⇔-left p⇔q p↦[s]r)
+-- -- ↪-⇔-left p⇔q (Transitivity (p↪[s]p₁ , p₁↪[s]r)) = Transitivity (↪-⇔-left p⇔q p↪[s]p₁ , p₁↪[s]r)
+-- ↪-⇔-left p⇔q (Transitivity (p↪[s]q , q↪[s]r)) = Transitivity (↪-⇔-left p⇔q p↪[s]q , q↪[s]r)
+-- ↪-⇔-left p⇔q (Disjunctivity (p↪[s]r , q↪[s]r)) = {!↪-⇔-left p⇔q Disjunctivity (p↪[s]r , q↪[s]r)!}
+-- ↪-⇔-left p⇔q (Disjunctivity (p↪[s]r , q↪[s]r)) = {!Disjunctivity {} (? , ?)!}
 
 -- impliesLeadsToLeft : P ⇒ Q → P ↪[ S ] R → Q ↪[ S ] R
 -- impliesLeadsToLeft p⇒q (FromEnsures ensures) = FromEnsures (impliesEnsuresLeft p⇒q ensures)
@@ -482,7 +532,7 @@ PSP : ((P ↪[ S ] Q) × (R ▷[ S ] B)) → (P △ R) ↪[ S ] ((Q △ R) ▽ B
 
 pspFromDisjunctivity : (P ↪[ S ] Q × P₁ ↪[ S ] Q) → R ▷[ S ] B → ((P ▽ P₁) △ R) ↪[ S ] (Q △ R ▽ B)
 pspFromDisjunctivity {P} {S} {Q} {P₁} {R} (p₁↪[s]q₁ , p₂↪[s]q₁) r▷[s]b =
-  ⇔-↪-left {(P △ R) ▽ (P₁ △ R)} {(P ▽ P₁) △ R}
+  ↪-⇔-left {(P △ R) ▽ (P₁ △ R)} {(P ▽ P₁) △ R}
     (⇔Symmetric andDistributiveRight)
     (Disjunctivity (PSP (p₁↪[s]q₁ , r▷[s]b) , PSP (p₂↪[s]q₁ , r▷[s]b)))
 
