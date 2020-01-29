@@ -528,27 +528,40 @@ pspFromEnsures (p▷[s]q , p↣[s]q) r▷[s]b = (pspFromEnsures₁ p▷[s]q r▷
 
 PSP : ((P ↪[ S ] Q) × (R ▷[ S ] B)) → (P △ R) ↪[ S ] ((Q △ R) ▽ B)
 
-pspFromTransitivity : (P ↪[ S ] P₁ × P₁ ↪[ S ] Q) → R ▷[ S ] B → (P △ R) ↪[ S ] ((Q △ R) ▽ B)
-pspFromTransitivity (p↪[s]p₁ , p₁↪[s]q) r▷[s]b =
-  let
-    nonEmptyS = ↪-NonEmpty p↪[s]p₁
-  in
+-- pspFromTransitivity : (P ↪[ S ] P₁ × P₁ ↪[ S ] Q) → R ▷[ S ] B → (P △ R) ↪[ S ] ((Q △ R) ▽ B)
+-- pspFromTransitivity (p↪[s]p₁ , p₁↪[s]q) r▷[s]b =
+--     Transitivity (
+--       (PSP (p↪[s]p₁ , r▷[s]b))
+--       ,
+--       Disjunctivity (
+--         (PSP (p₁↪[s]q , r▷[s]b))
+--         ,
+--         (↪-NonEmpty-from-⇒ (↪-NonEmpty p↪[s]p₁) inj₂)
+--       )
+--     )
+
+-- pspFromDisjunctivity : (P ↪[ S ] Q × P₁ ↪[ S ] Q) → R ▷[ S ] B → ((P ▽ P₁) △ R) ↪[ S ] (Q △ R ▽ B)
+-- pspFromDisjunctivity {P} {S} {Q} {P₁} {R} (p₁↪[s]q , p₂↪[s]q) r▷[s]b =
+--   ↪-⇔-left {(P △ R) ▽ (P₁ △ R)} {(P ▽ P₁) △ R}
+--     (⇔Symmetric andDistributiveRight)
+--     (Disjunctivity (PSP (p₁↪[s]q , r▷[s]b) , PSP (p₂↪[s]q , r▷[s]b)))
+
+PSP (FromEnsures ensures , r▷[s]b) = FromEnsures (pspFromEnsures ensures r▷[s]b)
+-- PSP (Transitivity (p↪[s]p₁ , p₁↪[s]q) , r▷[s]b) = pspFromTransitivity transitivity r▷[s]b
+-- PSP (Disjunctivity disjunctivity , r▷[s]b) = pspFromDisjunctivity disjunctivity r▷[s]b
+
+PSP (Transitivity (p↪[s]p₁ , p₁↪[s]q) , r▷[s]b) =
     Transitivity (
       (PSP (p↪[s]p₁ , r▷[s]b))
       ,
       Disjunctivity (
         (PSP (p₁↪[s]q , r▷[s]b))
         ,
-        (↪-NonEmpty-from-⇒ nonEmptyS inj₂)
+        (↪-NonEmpty-from-⇒ (↪-NonEmpty p↪[s]p₁) inj₂)
       )
     )
 
-pspFromDisjunctivity : (P ↪[ S ] Q × P₁ ↪[ S ] Q) → R ▷[ S ] B → ((P ▽ P₁) △ R) ↪[ S ] (Q △ R ▽ B)
-pspFromDisjunctivity {P} {S} {Q} {P₁} {R} (p₁↪[s]q , p₂↪[s]q) r▷[s]b =
-  ↪-⇔-left {(P △ R) ▽ (P₁ △ R)} {(P ▽ P₁) △ R}
+PSP (Disjunctivity (p₁↪[s]q , p₂↪[s]q) , r▷[s]b) =
+  ↪-⇔-left
     (⇔Symmetric andDistributiveRight)
     (Disjunctivity (PSP (p₁↪[s]q , r▷[s]b) , PSP (p₂↪[s]q , r▷[s]b)))
-
-PSP (FromEnsures ensures , r▷[s]b) = FromEnsures (pspFromEnsures ensures r▷[s]b)
-PSP (Transitivity transitivity , r▷[s]b) = pspFromTransitivity transitivity r▷[s]b
-PSP (Disjunctivity disjunctivity , r▷[s]b) = pspFromDisjunctivity disjunctivity r▷[s]b
