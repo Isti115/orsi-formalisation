@@ -441,7 +441,7 @@ _↦[_]_ P S Q = Ensures S P Q
 -- "Elkerülhetetlen / Inevitable"
 data LeadsTo : ParallelProgram → Predicate → Predicate → Statement where
   FromEnsures : Ensures S P Q → LeadsTo S P Q
-  Transitivity : (LeadsTo S P Q × LeadsTo S Q R) → LeadsTo S P R
+  Transitivity : ((LeadsTo S P Q) × (LeadsTo S Q R)) → LeadsTo S P R
   Disjunctivity : ((LeadsTo S P R) × (LeadsTo S Q R)) → LeadsTo S (P ▽ Q) R
 
 infix 4 _↪[_]_
@@ -455,6 +455,9 @@ _↪[_]_ P S Q = LeadsTo S P Q
 
 ↪-NonEmpty-Reflexive : NonEmpty S → P ↪[ S ] P
 ↪-NonEmpty-Reflexive nonEmptyS = FromEnsures (↦-NonEmpty-Reflexive nonEmptyS)
+
+↪-NonEmpty-from-⇒ : NonEmpty S → P ⇒ Q → P ↪[ S ] Q
+↪-NonEmpty-from-⇒ nonEmptyS p⇒q = FromEnsures (↦-NonEmpty-from-⇒ nonEmptyS p⇒q)
 
 ↪-⇐-left : P ⇐ Q → P ↪[ S ] R → Q ↪[ S ] R
 ↪-⇐-left p⇐q p↪[s]r = Transitivity (q↪[s]p , p↪[s]r)
@@ -523,19 +526,28 @@ pspFromEnsures (p▷[s]q , p↣[s]q) r▷[s]b = (pspFromEnsures₁ p▷[s]q r▷
 
 --
 
-pspFromTransitivity : (P ↪[ S ] P₁ × P₁ ↪[ S ] Q) → R ▷[ S ] B → (P △ R) ↪[ S ] ((Q △ R) ▽ B)
-pspFromTransitivity (p↪[s]q₁ , q₁↪[s]q) r▷[s]b = {!   !}
-
---
-
 PSP : ((P ↪[ S ] Q) × (R ▷[ S ] B)) → (P △ R) ↪[ S ] ((Q △ R) ▽ B)
 
+pspFromTransitivity : (P ↪[ S ] P₁ × P₁ ↪[ S ] Q) → R ▷[ S ] B → (P △ R) ↪[ S ] ((Q △ R) ▽ B)
+pspFromTransitivity (p↪[s]p₁ , p₁↪[s]q) r▷[s]b =
+  let
+    nonEmptyS = ↪-NonEmpty p↪[s]p₁
+  in
+    Transitivity (
+      (PSP (p↪[s]p₁ , r▷[s]b))
+      ,
+      Disjunctivity (
+        (PSP (p₁↪[s]q , r▷[s]b))
+        ,
+        (↪-NonEmpty-from-⇒ nonEmptyS inj₂)
+      )
+    )
+
 pspFromDisjunctivity : (P ↪[ S ] Q × P₁ ↪[ S ] Q) → R ▷[ S ] B → ((P ▽ P₁) △ R) ↪[ S ] (Q △ R ▽ B)
-pspFromDisjunctivity {P} {S} {Q} {P₁} {R} (p₁↪[s]q₁ , p₂↪[s]q₁) r▷[s]b =
+pspFromDisjunctivity {P} {S} {Q} {P₁} {R} (p₁↪[s]q , p₂↪[s]q) r▷[s]b =
   ↪-⇔-left {(P △ R) ▽ (P₁ △ R)} {(P ▽ P₁) △ R}
     (⇔Symmetric andDistributiveRight)
-    (Disjunctivity (PSP (p₁↪[s]q₁ , r▷[s]b) , PSP (p₂↪[s]q₁ , r▷[s]b)))
-
+    (Disjunctivity (PSP (p₁↪[s]q , r▷[s]b) , PSP (p₂↪[s]q , r▷[s]b)))
 
 PSP (FromEnsures ensures , r▷[s]b) = FromEnsures (pspFromEnsures ensures r▷[s]b)
 PSP (Transitivity transitivity , r▷[s]b) = pspFromTransitivity transitivity r▷[s]b
