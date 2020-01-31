@@ -47,22 +47,47 @@ module Program (VarTypes : ℕ → Types) where
   data Expression : Types → Set where
     ConstNat : ℕ → Expression Nat
     ConstListNat : List ℕ → Expression ListNat
-    GetListNat : ℕ → List ℕ → Expression Nat
-    SetListNat : ℕ → ℕ → List ℕ → Expression ListNat
+    GetListNat : Expression Nat → Expression ListNat → Expression Nat
+    SetListNat : Expression Nat → Expression Nat → Expression ListNat → Expression ListNat
     Var : (x : Vars) → Expression (VarTypes x)
     Plus : Expression Nat → Expression Nat → Expression Nat
+
+  infix 3 v[_]
+  v[_] : (x : Vars) → Expression (VarTypes x)
+  v[ x ] = Var x
+
+  infix 3 _g[_]
+  _g[_] : Expression ListNat → Expression Nat → Expression Nat
+  eln g[ ei ] = GetListNat ei eln
+
+  infixl 3 _s[_]=_
+  _s[_]=_ : Expression ListNat → Expression Nat → Expression Nat → Expression ListNat
+  eln s[ ei ]= em = SetListNat ei em eln
+
+  getWithDefaultZero : ℕ → List ℕ → ℕ
+  getWithDefaultZero i [] = 0
+  getWithDefaultZero zero (n ∷ ln) = n
+  getWithDefaultZero (suc i) (n ∷ ln) = getWithDefaultZero i ln
+
+  setWithDefaultEmpty : ℕ → ℕ → List ℕ → List ℕ
+  setWithDefaultEmpty i m [] = []
+  setWithDefaultEmpty zero m (n ∷ ln) = m ∷ ln
+  setWithDefaultEmpty (suc i) m (n ∷ ln) = n ∷ setWithDefaultEmpty i m ln 
 
   ⟦_⟧e : {t : Types} → Expression t → State → evaluateType t
   ⟦ ConstNat n ⟧e state = n
   ⟦ ConstListNat ln ⟧e state = ln
 
-  ⟦ GetListNat i [] ⟧e state = 0
-  ⟦ GetListNat zero (x ∷ ln) ⟧e state = x
-  ⟦ GetListNat (suc i) (x ∷ ln) ⟧e state = ⟦ GetListNat i ln ⟧e state
+  ⟦ GetListNat ei eln ⟧e state with ⟦ ei ⟧e state | ⟦ eln ⟧e state
+  ... | i | ln = getWithDefaultZero i ln
+  -- ⟦ GetListNat i eln ⟧e state | j | [] = 0
+  -- ⟦ GetListNat i eln ⟧e state | zero | n ∷ ln = n
+  -- ⟦ GetListNat i eln ⟧e state | suc j | n ∷ ln = ⟦ GetListNat (ConstNat j) (ConstListNat ln) ⟧e state
 
-  ⟦ SetListNat i n [] ⟧e state = []
-  ⟦ SetListNat zero n (x ∷ ln) ⟧e state = n ∷ ln
-  ⟦ SetListNat (suc i) n (x ∷ ln) ⟧e state = x ∷ ⟦ SetListNat i n ln ⟧e state
+  ⟦ SetListNat ei em eln ⟧e state with ⟦ ei ⟧e state | ⟦ em ⟧e state | ⟦ eln ⟧e state
+  ... | i | m | ln = setWithDefaultEmpty i m ln
+  -- ⟦ SetListNat zero n (x ∷ ln) ⟧e state = n ∷ ln
+  -- ⟦ SetListNat (suc i) n (x ∷ ln) ⟧e state = x ∷ ⟦ SetListNat i n ln ⟧e state
 
   ⟦ Var x ⟧e state = state x
   ⟦ Plus e e₁ ⟧e state = ⟦ e ⟧e state + ⟦ e₁ ⟧e state
@@ -152,6 +177,7 @@ module Program (VarTypes : ℕ → Types) where
   ⟦ GTE e e₁ ⟧c state = ⌊ ((⟦ e ⟧e state) Data.Nat.≥? (⟦ e₁ ⟧e state)) ⌋
   ⟦ LT e e₁ ⟧c state = ⌊ ((⟦ e ⟧e state) Data.Nat.<? (⟦ e₁ ⟧e state)) ⌋
   ⟦ GT e e₁ ⟧c state = ⌊ ((⟦ e ⟧e state) Data.Nat.>? (⟦ e₁ ⟧e state)) ⌋
+
   --
 
   STC_AND : {a b : Bool} → T a × T b → T (a ∧ b)
