@@ -268,6 +268,8 @@ anyImplies fa→ga (there tl) = there (anyImplies fa→ga tl)
 
 --
 
+-- Weakest Precondition
+
 WP : (Instruction × Predicate) → Assertion
 WP (i , P) = λ st → (⟦ i ⟧i st) ⊢ P
 
@@ -300,6 +302,16 @@ impliesPCWP p⇒q (ci_prf ∷ cis_prfs) = p⇒q ci_prf ∷ impliesPCWP p⇒q cis
 
 lessImpliesPCWP : (⟦ P ⟧a ⇛ (PCWP ((s0 , (ci ∷ cis)) , Q))) → (⟦ P ⟧a ⇛ (PCWP ((s0 , cis) , Q)))
 lessImpliesPCWP p⇛pcwp = λ p → lessPCWP (p⇛pcwp p)
+
+--
+
+-- Strongest Postcondition
+
+SP : (Instruction × Predicate) → Assertion
+SP (i , P) = λ st → Σ State (λ st0 → st0 ⊢ P → ⟦ i ⟧i st0 ≡ st)
+
+CSP : (ConditionalInstruction × Predicate) → Assertion
+CSP (ci , P) = λ st → Σ State (λ st0 → st0 ⊢ P → ⟦ ci ⟧ci st0 ≡ st)
 
 --
 
@@ -483,18 +495,67 @@ _↪[_]_ P S Q = LeadsTo S P Q
 -- impliesLeadsToLeft p⇒q (Transitivity (p↪[s]p₁ , p₁↪[s]r)) = {!   !}
 -- impliesLeadsToLeft p⇒q (Disjunctivity (p₁↪[s]r , p₂↪[s]r)) = {!   !}
 
+-- inv / INV
+
+-- P in invS(Q) = sp(s0, Q) => P /\ P => lf(S, P)
+
+Invariant : ParallelProgram → Predicate → Predicate → Statement
+Invariant S@(s0 , cis) P Q = ((CSP (s0 , Q)) ⇛ ⟦ P ⟧a) × (⟦ P ⟧a ⇛ PCWP (S , P))
+
+infix 4 _∈inv[_]_
+_∈inv[_]_ : Predicate → ParallelProgram → Predicate → Statement
+P ∈inv[ S ] Q = Invariant S P Q
+
+-- Invariant : ParallelProgram -> Predicate -> Statement
+-- Invariant S P = ⟦ P ⟧a ⇛ (PCWP (S , P))
+
+INVARIANT : ParallelProgram → Predicate → Assertion
+INVARIANT S Q = λ st → ∀{P} → Invariant S P Q → st ⊢ P
+
+infix 4 INV[_]
+INV[_] : ParallelProgram → Predicate → Assertion
+INV[ S ] = INVARIANT S
+
 --
 
-Invariant : ParallelProgram -> Predicate -> Statement
-Invariant S P = ⟦ P ⟧a ⇛ (PCWP (S , P))
+True : ParallelProgram → Predicate → Predicate → Statement
+True S P Q = INVARIANT S Q ⇛ ⟦ P ⟧a
 
-infix 4 _∈inv[_]
-_∈inv[_] : Predicate → ParallelProgram → Statement
-P ∈inv[ S ] = Invariant S P
+infix 4 _∈true[_]_
+_∈true[_]_ : Predicate → ParallelProgram → Predicate → Statement
+P ∈true[ S ] Q = True S P Q
+
+--
 
 -- init
--- FP
+
+-- infix 4 _∈INIT
+-- _∈INIT : Predicate → Statement
+-- P ∈INIT = {!!}
+
+--
+
+fixpoint : ParallelProgram → Assertion
+fixpoint S@(s0 , cis) = λ st → All (λ ci → st ≡ ⟦ ci ⟧ci st) cis
+
+infix 4 φ[_]
+φ[_] : ParallelProgram → Assertion
+φ[ S ] = fixpoint S
+
+--FP
+
+FIXPOINT : ParallelProgram → Predicate → Statement
+FIXPOINT S P = fixpoint S ⇛ ⟦ P ⟧a
+
+infix 4 _∈FP[_]
+_∈FP[_] : Predicate → ParallelProgram → Statement
+P ∈FP[ S ] = FIXPOINT S P
+
 -- TERM
+
+infix 4 _∈TERM[_]
+_∈TERM[_] : Predicate → ParallelProgram → Statement
+Q ∈TERM[ S ] = Σ Predicate (λ P → (Q ↪[ S ] P × ⟦ P ⟧a ⇛ fixpoint S))
 
 -- PSP
 
@@ -551,15 +612,15 @@ PSP (FromEnsures ensures , r▷[s]b) = FromEnsures (pspFromEnsures ensures r▷[
 -- PSP (Disjunctivity disjunctivity , r▷[s]b) = pspFromDisjunctivity disjunctivity r▷[s]b
 
 PSP (Transitivity (p↪[s]p₁ , p₁↪[s]q) , r▷[s]b) =
-    Transitivity (
-      (PSP (p↪[s]p₁ , r▷[s]b))
+  Transitivity (
+    (PSP (p↪[s]p₁ , r▷[s]b))
+    ,
+    Disjunctivity (
+      (PSP (p₁↪[s]q , r▷[s]b))
       ,
-      Disjunctivity (
-        (PSP (p₁↪[s]q , r▷[s]b))
-        ,
-        (↪-NonEmpty-from-⇒ (↪-NonEmpty p↪[s]p₁) inj₂)
-      )
+      (↪-NonEmpty-from-⇒ (↪-NonEmpty p↪[s]p₁) inj₂)
     )
+  )
 
 PSP (Disjunctivity (p₁↪[s]q , p₂↪[s]q) , r▷[s]b) =
   ↪-⇔-left
