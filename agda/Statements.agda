@@ -1,5 +1,7 @@
 -- module Statements where
 
+{-# OPTIONS --allow-unsolved-metas #-}
+
 open import Data.Unit
 open import Data.Bool
 open import Data.Bool.Properties

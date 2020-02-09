@@ -72,7 +72,7 @@ module Program (VarTypes : ℕ → Types) where
   setWithDefaultEmpty : ℕ → ℕ → List ℕ → List ℕ
   setWithDefaultEmpty i m [] = []
   setWithDefaultEmpty zero m (n ∷ ln) = m ∷ ln
-  setWithDefaultEmpty (suc i) m (n ∷ ln) = n ∷ setWithDefaultEmpty i m ln 
+  setWithDefaultEmpty (suc i) m (n ∷ ln) = n ∷ setWithDefaultEmpty i m ln
 
   ⟦_⟧e : {t : Types} → Expression t → State → evaluateType t
   ⟦ ConstNat n ⟧e state = n
@@ -123,6 +123,8 @@ module Program (VarTypes : ℕ → Types) where
     AND : Predicate → Predicate → Predicate
     OR : Predicate → Predicate → Predicate
 
+    EQ : Expression Nat → Expression Nat → Predicate
+
     LTE : Expression Nat → Expression Nat → Predicate
     GTE : Expression Nat → Expression Nat → Predicate
     LT : Expression Nat → Expression Nat → Predicate
@@ -158,6 +160,8 @@ module Program (VarTypes : ℕ → Types) where
   ⟦ AND p p₁ ⟧a state = ((⟦ p ⟧a state) × (⟦ p₁ ⟧a state))
   ⟦ OR p p₁ ⟧a state = ((⟦ p ⟧a state) ⊎ (⟦ p₁ ⟧a state))
 
+  ⟦ EQ e e₁ ⟧a state = ((⟦ e ⟧e state) ≡ (⟦ e₁ ⟧e state))
+
   ⟦ LTE e e₁ ⟧a state = ((⟦ e ⟧e state) Data.Nat.≤ (⟦ e₁ ⟧e state))
   ⟦ GTE e e₁ ⟧a state = ((⟦ e ⟧e state) Data.Nat.≥ (⟦ e₁ ⟧e state))
   ⟦ LT e e₁ ⟧a state = ((⟦ e ⟧e state) Data.Nat.< (⟦ e₁ ⟧e state))
@@ -172,6 +176,8 @@ module Program (VarTypes : ℕ → Types) where
   ⟦ NOT p ⟧c state = not (⟦ p ⟧c state)
   ⟦ AND p p₁ ⟧c state = (⟦ p ⟧c state) ∧ (⟦ p₁ ⟧c state)
   ⟦ OR p p₁ ⟧c state = (⟦ p ⟧c state) ∨ (⟦ p₁ ⟧c state)
+
+  ⟦ EQ e e₁ ⟧c state = ⌊ ((⟦ e ⟧e state) Data.Nat.≟ (⟦ e₁ ⟧e state)) ⌋
 
   ⟦ LTE e e₁ ⟧c state = ⌊ ((⟦ e ⟧e state) Data.Nat.≤? (⟦ e₁ ⟧e state)) ⌋
   ⟦ GTE e e₁ ⟧c state = ⌊ ((⟦ e ⟧e state) Data.Nat.≥? (⟦ e₁ ⟧e state)) ⌋
@@ -219,6 +225,10 @@ module Program (VarTypes : ℕ → Types) where
   assertionToCondition {OR p p₁} (inj₁ ps_st) = STC_OR (inj₁ (assertionToCondition ps_st))
   assertionToCondition {OR p p₁} (inj₂ p₁s_st) = STC_OR (inj₂ (assertionToCondition p₁s_st))
 
+  assertionToCondition {EQ e e₁} {st} ee=e₁e with (⟦ e ⟧e st Data.Nat.≟ ⟦ e₁ ⟧e st)
+  assertionToCondition {EQ e e₁} {st} ee=e₁e | yes p = tt
+  assertionToCondition {EQ e e₁} {st} ee=e₁e | no ¬p = ¬p ee=e₁e
+
   assertionToCondition {LTE e e₁} {st} ee≤e₁e with (⟦ e ⟧e st Data.Nat.≤? ⟦ e₁ ⟧e st)
   assertionToCondition {LTE e e₁} {st} ee≤e₁e | yes p = tt
   assertionToCondition {LTE e e₁} {st} ee≤e₁e | no ¬p = ¬p ee≤e₁e
@@ -245,6 +255,11 @@ module Program (VarTypes : ℕ → Types) where
   conditionToAssertion {OR p p₁} {st} pc_st∧p₁c_st with (CTS_OR {⟦ p ⟧c st} pc_st∧p₁c_st)
   conditionToAssertion {OR p p₁} {st} pc_st∧p₁c_st | inj₁ T_pc_st = inj₁ (conditionToAssertion T_pc_st)
   conditionToAssertion {OR p p₁} {st} pc_st∧p₁c_st | inj₂ T_p₁c_st = inj₂ (conditionToAssertion T_p₁c_st)
+
+
+  conditionToAssertion {EQ e e₁} {st} ee=e₁e with (⟦ e ⟧e st Data.Nat.≟ ⟦ e₁ ⟧e st)
+  conditionToAssertion {EQ e e₁} {st} ee=e₁e | yes p = p
+
 
   conditionToAssertion {LTE e e₁} {st} ee≤e₁e with (⟦ e ⟧e st Data.Nat.≤? ⟦ e₁ ⟧e st)
   conditionToAssertion {LTE e e₁} {st} ee≤e₁e | yes p = p
