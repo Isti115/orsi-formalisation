@@ -283,10 +283,15 @@ module Program (VarTypes : ℕ → Types) where
 
   --
 
+  ⟦⟧ciHelper : Bool → Instruction → State → State
+  ⟦⟧ciHelper false i st = st
+  ⟦⟧ciHelper true i st = ⟦ i ⟧i st
+
   ⟦_⟧ci : ConditionalInstruction → State → State
-  ⟦ (p , i) ⟧ci st with ⟦ p ⟧c st
-  ... | false = st
-  ... | true = ⟦ i ⟧i st
+  ⟦ (p , i) ⟧ci st = ⟦⟧ciHelper (⟦ p ⟧c st) i st
+  -- ⟦ (p , i) ⟧ci st with ⟦ p ⟧c st
+  -- ... | false = st
+  -- ... | true = ⟦ i ⟧i st
 
   --
 
