@@ -167,119 +167,47 @@ module Program (VarTypes : ℕ → Types) where
   ⟦ LT e e₁ ⟧a state = ((⟦ e ⟧e state) Data.Nat.< (⟦ e₁ ⟧e state))
   ⟦ GT e e₁ ⟧a state = ((⟦ e ⟧e state) Data.Nat.> (⟦ e₁ ⟧e state))
 
+  Decision : Predicate → Set
+  Decision p = (st : State) → Dec (⟦ p ⟧a st)
+
+  decNot : {X : Set} → Dec X → Dec (¬ X)
+  decNot (yes x) = no (λ ¬x → ¬x x)
+  decNot (no ¬x) = yes ¬x
+
+  decAnd : {X Y : Set} → Dec X → Dec Y → Dec (X × Y)
+  decAnd (yes x) (yes y) = yes (x , y)
+  decAnd (yes x) (no ¬y) = no (λ { (x , y) → ¬y y })
+  decAnd (no ¬x) dy = no (λ { (x , y) → ¬x x })
+
+  decOr : {X Y : Set} → Dec X → Dec Y → Dec (X ⊎ Y)
+  decOr (yes x) dy = yes (inj₁ x)
+  decOr (no ¬x) (yes y) = yes (inj₂ y)
+  decOr (no ¬x) (no ¬y) = no λ { (inj₁ x) → ¬x x ; (inj₂ y) → ¬y y }
+
+  ⟦_⟧d : (p : Predicate) → Decision p
+  ⟦ TRUE ⟧d = const (yes tt)
+  ⟦ FALSE ⟧d = const (no (λ bot → bot))
+  ⟦ NOT p ⟧d state = decNot (⟦ p ⟧d state)
+  ⟦ AND p p₁ ⟧d state = decAnd (⟦ p ⟧d state) (⟦ p₁ ⟧d state)
+  ⟦ OR p p₁ ⟧d state = decOr (⟦ p ⟧d state) (⟦ p₁ ⟧d state)
+
+  ⟦ EQ e e₁ ⟧d state = ((⟦ e ⟧e state) Data.Nat.≟ (⟦ e₁ ⟧e state))
+
+  ⟦ LTE e e₁ ⟧d state = ((⟦ e ⟧e state) Data.Nat.≤? (⟦ e₁ ⟧e state))
+  ⟦ GTE e e₁ ⟧d state = ((⟦ e ⟧e state) Data.Nat.≥? (⟦ e₁ ⟧e state))
+  ⟦ LT e e₁ ⟧d state = ((⟦ e ⟧e state) Data.Nat.<? (⟦ e₁ ⟧e state))
+  ⟦ GT e e₁ ⟧d state = ((⟦ e ⟧e state) Data.Nat.>? (⟦ e₁ ⟧e state))
+
   Condition : Set
   Condition = State → Bool
 
   ⟦_⟧c : Predicate → Condition
-  ⟦ TRUE ⟧c = const true
-  ⟦ FALSE ⟧c = const false
-  ⟦ NOT p ⟧c state = not (⟦ p ⟧c state)
-  ⟦ AND p p₁ ⟧c state = (⟦ p ⟧c state) ∧ (⟦ p₁ ⟧c state)
-  ⟦ OR p p₁ ⟧c state = (⟦ p ⟧c state) ∨ (⟦ p₁ ⟧c state)
+  ⟦ p ⟧c st = ⌊ ⟦ p ⟧d st ⌋
 
-  ⟦ EQ e e₁ ⟧c state = ⌊ ((⟦ e ⟧e state) Data.Nat.≟ (⟦ e₁ ⟧e state)) ⌋
-
-  ⟦ LTE e e₁ ⟧c state = ⌊ ((⟦ e ⟧e state) Data.Nat.≤? (⟦ e₁ ⟧e state)) ⌋
-  ⟦ GTE e e₁ ⟧c state = ⌊ ((⟦ e ⟧e state) Data.Nat.≥? (⟦ e₁ ⟧e state)) ⌋
-  ⟦ LT e e₁ ⟧c state = ⌊ ((⟦ e ⟧e state) Data.Nat.<? (⟦ e₁ ⟧e state)) ⌋
-  ⟦ GT e e₁ ⟧c state = ⌊ ((⟦ e ⟧e state) Data.Nat.>? (⟦ e₁ ⟧e state)) ⌋
-
-  --
-
-  STC_AND : {a b : Bool} → T a × T b → T (a ∧ b)
-  STC_AND {false} = proj₁
-  STC_AND {true} = proj₂
-
-  STC_OR : {a b : Bool} → T a ⊎ T b → T (a ∨ b)
-  STC_OR {false} {false} (inj₁ ())
-  STC_OR {false} {false} (inj₂ ())
-  STC_OR {false} {true} = const tt
-  STC_OR {true} = const tt
-
-  STC_NOT : {a : Bool} → ¬ (T a) → T (not a)
-  STC_NOT {false} = const tt
-  STC_NOT {true} ¬tt = ¬tt tt
-
-  CTS_AND : {a b : Bool} → T (a ∧ b) → T a × T b
-  CTS_AND {false} ()
-  CTS_AND {true} {false} ()
-  CTS_AND {true} {true} tt = (tt , tt)
-
-  CTS_OR : {a b : Bool} → T (a ∨ b) → T a ⊎ T b
-  CTS_OR {false} {false} ()
-  CTS_OR {false} {true} tt = inj₂ tt
-  CTS_OR {true} tt = inj₁ tt
-
-  CTS_NOT : {a : Bool} → T (not a) → ¬ (T a)
-  CTS_NOT {false} = const id
-  CTS_NOT {true} ()
-
-  assertionToCondition : {p : Predicate} → {st : State} → ⟦ p ⟧a st → T (⟦ p ⟧c st)
-  conditionToAssertion : {p : Predicate} → {st : State} → T (⟦ p ⟧c st) → ⟦ p ⟧a st
-
-  assertionToCondition {TRUE} ps_st = tt
-  assertionToCondition {FALSE} ()
-  assertionToCondition {NOT p} {st} ¬ps_st = STC_NOT (λ T_p₁c_st → ¬ps_st (conditionToAssertion T_p₁c_st))
-  assertionToCondition {AND p p₁} (ps_st , p₁s_st) =
-    STC_AND (assertionToCondition {p} ps_st , assertionToCondition {p₁} p₁s_st)
-  assertionToCondition {OR p p₁} (inj₁ ps_st) = STC_OR (inj₁ (assertionToCondition ps_st))
-  assertionToCondition {OR p p₁} (inj₂ p₁s_st) = STC_OR (inj₂ (assertionToCondition p₁s_st))
-
-  assertionToCondition {EQ e e₁} {st} ee=e₁e with (⟦ e ⟧e st Data.Nat.≟ ⟦ e₁ ⟧e st)
-  assertionToCondition {EQ e e₁} {st} ee=e₁e | yes p = tt
-  assertionToCondition {EQ e e₁} {st} ee=e₁e | no ¬p = ¬p ee=e₁e
-
-  assertionToCondition {LTE e e₁} {st} ee≤e₁e with (⟦ e ⟧e st Data.Nat.≤? ⟦ e₁ ⟧e st)
-  assertionToCondition {LTE e e₁} {st} ee≤e₁e | yes p = tt
-  assertionToCondition {LTE e e₁} {st} ee≤e₁e | no ¬p = ¬p ee≤e₁e
-
-  assertionToCondition {GTE e e₁} {st} ee≥e₁e with (⟦ e ⟧e st Data.Nat.≥? ⟦ e₁ ⟧e st)
-  assertionToCondition {GTE e e₁} {st} ee≥e₁e | yes p = tt
-  assertionToCondition {GTE e e₁} {st} ee≥e₁e | no ¬p = ¬p ee≥e₁e
-
-  assertionToCondition {LT e e₁} {st} ee<e₁e with (⟦ e ⟧e st Data.Nat.<? ⟦ e₁ ⟧e st)
-  assertionToCondition {LT e e₁} {st} ee<e₁e | yes p = tt
-  assertionToCondition {LT e e₁} {st} ee<e₁e | no ¬p = ¬p ee<e₁e
-
-  assertionToCondition {GT e e₁} {st} ee>e₁e with (⟦ e ⟧e st Data.Nat.>? ⟦ e₁ ⟧e st)
-  assertionToCondition {GT e e₁} {st} ee>e₁e | yes p = tt
-  assertionToCondition {GT e e₁} {st} ee>e₁e | no ¬p = ¬p ee>e₁e
-
-
-  conditionToAssertion {TRUE} {st} tt = tt
-  conditionToAssertion {FALSE} {st} ()
-  conditionToAssertion {NOT p} {st} T_not_pc_st ps_st = (CTS_NOT T_not_pc_st) (assertionToCondition ps_st)
-  conditionToAssertion {AND p p₁} {st} pc_st∧p₁c_st with (CTS_AND {⟦ p ⟧c st} pc_st∧p₁c_st)
-  conditionToAssertion {AND p p₁} {st} pc_st∧p₁c_st | (T_pc_st , T_p₁c_st) =
-    (conditionToAssertion T_pc_st , conditionToAssertion T_p₁c_st)
-  conditionToAssertion {OR p p₁} {st} pc_st∧p₁c_st with (CTS_OR {⟦ p ⟧c st} pc_st∧p₁c_st)
-  conditionToAssertion {OR p p₁} {st} pc_st∧p₁c_st | inj₁ T_pc_st = inj₁ (conditionToAssertion T_pc_st)
-  conditionToAssertion {OR p p₁} {st} pc_st∧p₁c_st | inj₂ T_p₁c_st = inj₂ (conditionToAssertion T_p₁c_st)
-
-
-  conditionToAssertion {EQ e e₁} {st} ee=e₁e with (⟦ e ⟧e st Data.Nat.≟ ⟦ e₁ ⟧e st)
-  conditionToAssertion {EQ e e₁} {st} ee=e₁e | yes p = p
-
-
-  conditionToAssertion {LTE e e₁} {st} ee≤e₁e with (⟦ e ⟧e st Data.Nat.≤? ⟦ e₁ ⟧e st)
-  conditionToAssertion {LTE e e₁} {st} ee≤e₁e | yes p = p
-
-  conditionToAssertion {GTE e e₁} {st} ee≥e₁e with (⟦ e ⟧e st Data.Nat.≥? ⟦ e₁ ⟧e st)
-  conditionToAssertion {GTE e e₁} {st} ee≥e₁e | yes p = p
-
-  conditionToAssertion {LT e e₁} {st} ee<e₁e with (⟦ e ⟧e st Data.Nat.<? ⟦ e₁ ⟧e st)
-  conditionToAssertion {LT e e₁} {st} ee<e₁e | yes p = p
-
-  conditionToAssertion {GT e e₁} {st} ee>e₁e with (⟦ e ⟧e st Data.Nat.>? ⟦ e₁ ⟧e st)
-  conditionToAssertion {GT e e₁} {st} ee>e₁e | yes p = p
-
-  conditionDecidability : {p : Predicate} → {st : State} → T (not (⟦ p ⟧c st) ∨ ⟦ p ⟧c st)
-  conditionDecidability {p} {st} with (⟦ p ⟧c st)
-  conditionDecidability {p} {st} | false = tt
-  conditionDecidability {p} {st} | true = tt
-
-  assertionDecidability : {p : Predicate} → {st : State} → ((¬ ⟦ p ⟧a st) ⊎ (⟦ p ⟧a st))
-  assertionDecidability {p} {st} = conditionToAssertion (conditionDecidability {p})
+  assertionDecidability : {P : Predicate} → {st : State} → ((¬ ⟦ P ⟧a st) ⊎ (⟦ P ⟧a st))
+  assertionDecidability {P} {st} with (⟦ P ⟧d st)
+  assertionDecidability {P} {st} | yes p = inj₂ p
+  assertionDecidability {P} {st} | no ¬p = inj₁ ¬p
 
   --
 
