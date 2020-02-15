@@ -47,7 +47,7 @@ module Statements (VarTypes : ℕ → Types) where
     c d : Condition
     i : Instruction
     s0 ci : ConditionalInstruction
-    cis : List ConditionalInstruction
+    ss cis : List ConditionalInstruction
     S : ParallelProgram
     st : State
     W X Y Z : Set
@@ -381,6 +381,23 @@ module Statements (VarTypes : ℕ → Types) where
   unlessFromImplies : (P ⇒ Q) → (P ▷[ S ] Q)
   -- unlessFromImplies p⇒q (p , ¬q) = ⊥-elim (¬q (p⇒q p))
   unlessFromImplies p⇒q = impliesUnlessRight p⇒q ▷-Reflexive
+
+  --
+
+  ▷-proofHelper :
+    {pq : st ⊢ (P △ ⌝ Q)} → ((⟦ R ⟧c st ≡ true → (⟦ i ⟧i st) ⊢ (P ▽ Q))) →
+    ((⟦ (R , i) ⟧ci st) ⊢ (P ▽ Q))
+  ▷-proofHelper {st} {P} {Q} {R} {i} {pq} f with (⟦ R ⟧c st)
+  ▷-proofHelper {st} {P} {Q} {R} {i} {pq} f | false = inj₁ (proj₁ pq)
+  ▷-proofHelper {st} {P} {Q} {R} {i} {pq} f | true = f refl
+
+  ▷-proof :
+    All (λ { (R , i) → (∀ {st} → ⟦ R ⟧c st ≡ true → (⟦ i ⟧i st) ⊢ (P ▽ Q)) }) ss →
+    P ▷[ (s0 , ss) ] Q
+  ▷-proof {P} {Q} {[]} [] {st} (p , ⌝q) = []
+  ▷-proof {P} {Q} {(R , i) ∷ cis} (prf ∷ prfs) {st} (p , ⌝q) =
+    ▷-proofHelper {st} {P} {Q} {R} {i} {p , ⌝q} prf
+      ∷ (▷-proof {P} {Q} {cis} prfs {st} (p , ⌝q))
 
   --
 

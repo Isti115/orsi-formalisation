@@ -44,12 +44,12 @@ lemm3 refl p = p
 -- ciProofHelper2 {R} {st} p with (⟦ R ⟧c st)
 -- ciProofHelper2 {R} {st} p | true = refl
 
-ciProofHelper3 :
-  {pq : st ⊢ (P △ ⌝ Q)} → ((⟦ R ⟧c st ≡ true → (⟦ i ⟧i st) ⊢ (P ▽ Q))) →
-  ((⟦ (R , i) ⟧ci st) ⊢ (P ▽ Q))
-ciProofHelper3 {st} {P} {Q} {R} {i} {pq} f with (⟦ R ⟧c st)
-ciProofHelper3 {st} {P} {Q} {R} {i} {pq} f | false = inj₁ (proj₁ pq)
-ciProofHelper3 {st} {P} {Q} {R} {i} {pq} f | true = f refl
+-- ciProofHelper3 :
+--   {pq : st ⊢ (P △ ⌝ Q)} → ((⟦ R ⟧c st ≡ true → (⟦ i ⟧i st) ⊢ (P ▽ Q))) →
+--   ((⟦ (R , i) ⟧ci st) ⊢ (P ▽ Q))
+-- ciProofHelper3 {st} {P} {Q} {R} {i} {pq} f with (⟦ R ⟧c st)
+-- ciProofHelper3 {st} {P} {Q} {R} {i} {pq} f | false = inj₁ (proj₁ pq)
+-- ciProofHelper3 {st} {P} {Q} {R} {i} {pq} f | true = f refl
 
 inst : Instruction
 inst = Assignment [(0 , Plus v[ 0 ] (ConstNat 1))]
@@ -60,13 +60,26 @@ asdf2 : (EQ v[ 0 ] (ConstNat 1)) ▷[
     [ ((LT v[ 0 ] (ConstNat 3)) , Assignment [(0 , Plus v[ 0 ] (ConstNat 1))]) ]
   ] (EQ v[ 0 ] (ConstNat 2))
 
+-- asdf2 {st} (before , ⌝after) =
+--   ▷-proof
+--     {EQ v[ 0 ] (ConstNat 1)}
+--     {EQ v[ 0 ] (ConstNat 2)}
+--     -- {LT v[ 0 ] (ConstNat 3)}
+--     {{!!}}
+--     {{!!}}
+--     (
+--       ((λ x → inj₂ (cong (_+ 1) before)))
+--     ∷ [])
+--     {st}
+--     (before , ⌝after)
+
 asdf2 {st} (before , ⌝after) =
-  ciProofHelper3
+  ▷-proofHelper
     {st}
     {EQ v[ 0 ] (ConstNat 1)}
     {EQ v[ 0 ] (ConstNat 2)}
     {LT v[ 0 ] (ConstNat 3)}
-    {_}
+    {_} -- {inst}
     {before , ⌝after}
     (λ x → inj₂ (cong (_+ 1) before))
   ∷ []
