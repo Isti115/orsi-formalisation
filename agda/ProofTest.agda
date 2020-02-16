@@ -60,17 +60,16 @@ asdf2 : (EQ v[ 0 ] (ConstNat 1)) ▷[
     [ ((LT v[ 0 ] (ConstNat 3)) , Assignment [(0 , Plus v[ 0 ] (ConstNat 1))]) ]
   ] (EQ v[ 0 ] (ConstNat 2))
 
-asdf2 {st} (before , ⌝after) =
+asdf2 =
   ▷-proof
-    {st}
     {EQ v[ 0 ] (ConstNat 1)}
     {EQ v[ 0 ] (ConstNat 2)}
     {_}
-    {(TRUE , SKIP)}
-    (before , ⌝after)
+    {(FALSE , SKIP)}
     (
-      ((λ x → inj₂ (cong (_+ 1) before)))
+      (λ p⌝q r → inj₂ (cong (_+ 1) (proj₁ p⌝q)))
     ∷ [])
+    -- (before , ⌝after)
     -- {!!}
 --     {{!!}}
 --     {{!!}}
