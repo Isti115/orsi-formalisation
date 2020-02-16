@@ -60,29 +60,32 @@ asdf2 : (EQ v[ 0 ] (ConstNat 1)) ▷[
     [ ((LT v[ 0 ] (ConstNat 3)) , Assignment [(0 , Plus v[ 0 ] (ConstNat 1))]) ]
   ] (EQ v[ 0 ] (ConstNat 2))
 
--- asdf2 {st} (before , ⌝after) =
---   ▷-proof
---     {EQ v[ 0 ] (ConstNat 1)}
---     {EQ v[ 0 ] (ConstNat 2)}
---     -- {LT v[ 0 ] (ConstNat 3)}
---     {{!!}}
---     {{!!}}
---     (
---       ((λ x → inj₂ (cong (_+ 1) before)))
---     ∷ [])
---     {st}
---     (before , ⌝after)
-
 asdf2 {st} (before , ⌝after) =
-  ▷-proofHelper
+  ▷-proof
     {st}
     {EQ v[ 0 ] (ConstNat 1)}
     {EQ v[ 0 ] (ConstNat 2)}
-    {LT v[ 0 ] (ConstNat 3)}
-    {_} -- {inst}
-    {before , ⌝after}
-    (λ x → inj₂ (cong (_+ 1) before))
-  ∷ []
+    {_}
+    {(TRUE , SKIP)}
+    (before , ⌝after)
+    (
+      ((λ x → inj₂ (cong (_+ 1) before)))
+    ∷ [])
+    -- {!!}
+--     {{!!}}
+--     {{!!}}
+--     {st}
+
+-- asdf2 {st} (before , ⌝after) =
+--   ▷-proofHelper
+--     {st}
+--     {EQ v[ 0 ] (ConstNat 1)}
+--     {EQ v[ 0 ] (ConstNat 2)}
+--     {LT v[ 0 ] (ConstNat 3)}
+--     {_} -- {inst}
+--     {before , ⌝after}
+--     (λ x → inj₂ (cong (_+ 1) before))
+--   ∷ []
 
   -- ciProofHelper
   --   -- {st}

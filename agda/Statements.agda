@@ -385,19 +385,21 @@ module Statements (VarTypes : ℕ → Types) where
   --
 
   ▷-proofHelper :
-    {pq : st ⊢ (P △ ⌝ Q)} → ((⟦ R ⟧c st ≡ true → (⟦ i ⟧i st) ⊢ (P ▽ Q))) →
+    (pq : st ⊢ (P △ ⌝ Q)) →
+    ((⟦ R ⟧c st ≡ true → (⟦ i ⟧i st) ⊢ (P ▽ Q))) →
     ((⟦ (R , i) ⟧ci st) ⊢ (P ▽ Q))
-  ▷-proofHelper {st} {P} {Q} {R} {i} {pq} f with (⟦ R ⟧c st)
-  ▷-proofHelper {st} {P} {Q} {R} {i} {pq} f | false = inj₁ (proj₁ pq)
-  ▷-proofHelper {st} {P} {Q} {R} {i} {pq} f | true = f refl
+  ▷-proofHelper {st} {P} {Q} {R} {i} pq f with (⟦ R ⟧c st)
+  ▷-proofHelper {st} {P} {Q} {R} {i} pq f | false = inj₁ (proj₁ pq)
+  ▷-proofHelper {st} {P} {Q} {R} {i} pq f | true = f refl
 
   ▷-proof :
-    All (λ { (R , i) → (∀ {st} → ⟦ R ⟧c st ≡ true → (⟦ i ⟧i st) ⊢ (P ▽ Q)) }) ss →
-    P ▷[ (s0 , ss) ] Q
-  ▷-proof {P} {Q} {[]} [] {st} (p , ⌝q) = []
-  ▷-proof {P} {Q} {(R , i) ∷ cis} (prf ∷ prfs) {st} (p , ⌝q) =
-    ▷-proofHelper {st} {P} {Q} {R} {i} {p , ⌝q} prf
-      ∷ (▷-proof {P} {Q} {cis} prfs {st} (p , ⌝q))
+    (pq : st ⊢ (P △ ⌝ Q)) →
+    All (λ { (R , i) → (⟦ R ⟧c st ≡ true → (⟦ i ⟧i st) ⊢ (P ▽ Q)) }) ss →
+    (PCWP ((s0 , ss) , P ▽ Q) st) -- P ▷[ (s0 , ss) ] Q
+  ▷-proof {st} {P} {Q} {[]} (p , ⌝q) [] = []
+  ▷-proof {st} {P} {Q} {(R , i) ∷ cis} {s0} (p , ⌝q) (prf ∷ prfs) = 
+    ▷-proofHelper {st} {P} {Q} {R} {i} (p , ⌝q) prf
+      ∷ (▷-proof {st} {P} {Q} {cis} {s0} (p , ⌝q) prfs)
 
   --
 
