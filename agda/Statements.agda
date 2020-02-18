@@ -392,39 +392,15 @@ module Statements (VarTypes : ℕ → Types) where
   ▷-proofHelper {st} {P} {Q} {R} {i} pq f | false = inj₁ (proj₁ pq)
   ▷-proofHelper {st} {P} {Q} {R} {i} pq f | true = f refl
 
-  -- ▷-proof :
-  --   -- (pq : st ⊢ (P △ ⌝ Q)) →
-  --   (∀{st : State} → All (λ { (R , i) →
-  --     ((st ⊢ (P △ ⌝ Q)) → ⟦ R ⟧c st ≡ true → (⟦ i ⟧i st) ⊢ (P ▽ Q))
-  --   }) ss) →
-  --   -- (PCWP ((s0 , ss) , P ▽ Q) st)
-  --   P ▷[ (s0 , ss) ] Q
-  -- ▷-proof {P} {Q} {ss} {s0} f {st} (p , ⌝q) with f {st}
-  -- ▷-proof {P} {Q} {[]} {s0} f {st} (p , ⌝q) | [] = []
-  -- ▷-proof {P} {Q} {((R , i) ∷ cis)} {s0} f {st} (p , ⌝q) | prf ∷ prfs =
-  --   {!!}
-  --     ∷ (▷-proof {P} {Q} {cis} {!prfs!} {st} (p , ⌝q))
-
   ▷-proof :
-    -- (pq : st ⊢ (P △ ⌝ Q)) →
     (All (λ { (R , i) →
       (∀{st : State} → st ⊢ (P △ ⌝ Q) → ⟦ R ⟧c st ≡ true → (⟦ i ⟧i st) ⊢ (P ▽ Q))
     }) ss) →
-    -- (PCWP ((s0 , ss) , P ▽ Q) st)
-    P ▷[ (s0 , ss) ] Q
-  ▷-proof {P} {Q} {[]} {s0} [] (p , ⌝q) = []
-  ▷-proof {P} {Q} {(R , i) ∷ cis} {s0} (prf ∷ prfs) {st} (p , ⌝q) =
-    -- {!!}
-    ▷-proofHelper {st} {P} {Q} {R} {i} (p , ⌝q) (prf (p , ⌝q)) 
-      ∷ (▷-proof {P} {Q} {cis} {s0} prfs (p , ⌝q))
-  -- ▷-proof {st} {P} {Q} {[]} [] (p , ⌝q) = []
-  -- ▷-proof {st} {P} {Q} {(R , i) ∷ cis} (prf ∷ prfs) (p , ⌝q) =
-    -- {!TRUE ▷[ (TRUE , SKIP) , [] ] Q!}
-    -- {!_⇛_!}
-  -- ▷-proof {st} {P} {Q} {[]} (p , ⌝q) [] = []
-  -- ▷-proof {st} {P} {Q} {(R , i) ∷ cis} {s0} (p , ⌝q) (prf ∷ prfs) = 
-  --   ▷-proofHelper {st} {P} {Q} {R} {i} (p , ⌝q) prf
-  --     ∷ (▷-proof {st} {P} {Q} {cis} {s0} (p , ⌝q) prfs)
+    ∀{s0 : ConditionalInstruction} → P ▷[ (s0 , ss) ] Q
+  ▷-proof {P} {Q} {[]} [] (p , ⌝q) = []
+  ▷-proof {P} {Q} {(R , i) ∷ cis} (prf ∷ prfs) {s0} {st} (p , ⌝q) =
+    ▷-proofHelper {st} {P} {Q} {R} {i} (p , ⌝q) (prf (p , ⌝q))
+      ∷ (▷-proof {P} {Q} {cis} prfs {s0} (p , ⌝q))
 
   --
 

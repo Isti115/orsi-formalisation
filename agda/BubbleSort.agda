@@ -64,19 +64,42 @@ bubbleSort count =
 --   open module Implementation
 
 Before : Predicate
-Before = EQ (GetListNat (ConstNat 0) (Var 0)) (ConstNat 1)
+Before = EQ (v[ 0 ] g[ ConstNat 0 ]) (ConstNat 1)
 
 After : Predicate
-After = EQ (GetListNat (ConstNat 0) (Var 0)) (ConstNat 0)
+After = EQ (v[ 0 ] g[ ConstNat 0 ]) (ConstNat 0)
+
+helper :
+  (st ⊢ (Before △ ⌝ After)) →
+  ⟦ GT (v[ 0 ] g[ ConstNat 0 ]) (v[ 0 ] g[ ConstNat 1 ]) ⟧c st ≡ true →
+  (⟦ Assignment [(
+        0
+        ,
+        (
+          v[ 0 ]
+          s[ ConstNat 0 ]=(v[ 0 ] g[ ConstNat (0 + 1) ])
+          s[ ConstNat (0 + 1) ]=(v[ 0 ] g[ ConstNat 0 ])
+        )
+      )] ⟧i st) ⊢ (Before ▽ After)
+helper bna gt = {!!}
 
 test2 : Before ▷[ bubbleSort 1 ] After
-test2 {st} (before , ⌝after) with (⌊
-          ⟦ GetListNat (ConstNat 0) (Example.Var 0) ⟧e st
-          >?
-          ⟦ GetListNat (ConstNat 1) (Example.Var 0) ⟧e st
-          ⌋)
-test2 {st} (before , ⌝after) | false = (inj₂ {!!}) ∷ []
-test2 {st} (before , ⌝after) | true = (inj₂ {!!}) ∷ []
+test2 =
+  ▷-proof
+    {Before}
+    {After}
+    (helper ∷ [])
+    -- ((λ { (b , ⌝a) gt → {!!} }) ∷ [])
+    {TRUE , SKIP}
+
+
+-- test2 {st} (before , ⌝after) with (⌊
+--           ⟦ GetListNat (ConstNat 0) (Example.Var 0) ⟧e st
+--           >?
+--           ⟦ GetListNat (ConstNat 1) (Example.Var 0) ⟧e st
+--           ⌋)
+-- test2 {st} (before , ⌝after) | false = (inj₂ {!!}) ∷ []
+-- test2 {st} (before , ⌝after) | true = (inj₂ {!!}) ∷ []
 
 -- test2 {st} (before , ⌝after) with (⟦
 --     GT
