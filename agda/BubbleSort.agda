@@ -1,5 +1,6 @@
 open import Relation.Nullary.Decidable
-open import Data.Bool
+open import Data.Empty
+open import Data.Bool hiding (_≤_)
 open import Data.Nat
 open import Data.Product
 open import Data.Sum
@@ -69,26 +70,33 @@ Before = EQ (v[ 0 ] g[ ConstNat 0 ]) (ConstNat 1)
 After : Predicate
 After = EQ (v[ 0 ] g[ ConstNat 0 ]) (ConstNat 0)
 
+h1 : {x : ℕ} → suc (suc x) ≤ 1 → ⊥
+h1 (s≤s ())
+
 helper :
   (st ⊢ (Before △ ⌝ After)) →
-  ⟦ GT (v[ 0 ] g[ ConstNat 0 ]) (v[ 0 ] g[ ConstNat 1 ]) ⟧c st ≡ true →
+  ⟦ GT (v[ 0 ] g[ ConstNat 0 ]) (v[ 0 ] g[ ConstNat 1 ]) ⟧a st →
   (⟦ Assignment [(
         0
         ,
         (
           v[ 0 ]
-          s[ ConstNat 0 ]=(v[ 0 ] g[ ConstNat (0 + 1) ])
-          s[ ConstNat (0 + 1) ]=(v[ 0 ] g[ ConstNat 0 ])
+          s[ ConstNat 0 ]=(v[ 0 ] g[ ConstNat 1 ])
+          s[ ConstNat 1 ]=(v[ 0 ] g[ ConstNat 0 ])
         )
       )] ⟧i st) ⊢ (Before ▽ After)
-helper bna gt = {!!}
+helper {st} (before , after) gt with (getWithDefaultZero 1 (st 0))
+helper {st} (before , after) gt | zero with (st 0)
+helper {st} (before , after) gt | zero | l ∷ ls = inj₂ refl
+helper {st} (before , after) gt | suc x rewrite before = ⊥-elim (h1 gt)
+-- helper (before , after) gt = inj₂ {!!}
 
 test2 : Before ▷[ bubbleSort 1 ] After
-test2 =
+test2 {st} =
   ▷-proof
     {Before}
     {After}
-    (helper ∷ [])
+    ((λ {st} → (helper {st})) ∷ [])
     -- ((λ { (b , ⌝a) gt → {!!} }) ∷ [])
     {TRUE , SKIP}
 

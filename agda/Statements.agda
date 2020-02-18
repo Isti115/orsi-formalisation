@@ -12,6 +12,8 @@ open import Data.Sum
 open import Data.List
 open import Data.List.All
 open import Data.List.Any
+open import Relation.Nullary
+open import Relation.Nullary.Decidable hiding (True)
 open import Relation.Binary.PropositionalEquality as Eq
 open import Function
 
@@ -386,19 +388,23 @@ module Statements (VarTypes : ℕ → Types) where
 
   ▷-proofHelper :
     (st ⊢ (P △ ⌝ Q)) →
-    (⟦ R ⟧c st ≡ true → (⟦ i ⟧i st) ⊢ (P ▽ Q)) →
+    (⟦ R ⟧a st → (⟦ i ⟧i st) ⊢ (P ▽ Q)) →
     ((⟦ (R , i) ⟧ci st) ⊢ (P ▽ Q))
-  ▷-proofHelper {st} {P} {Q} {R} {i} pq f with (⟦ R ⟧c st)
-  ▷-proofHelper {st} {P} {Q} {R} {i} pq f | false = inj₁ (proj₁ pq)
-  ▷-proofHelper {st} {P} {Q} {R} {i} pq f | true = f refl
+  ▷-proofHelper {st} {P} {Q} {R} {i} pq f with (⟦ R ⟧d st)
+  ▷-proofHelper {st} {P} {Q} {R} {i} pq f | yes p = f p
+  ▷-proofHelper {st} {P} {Q} {R} {i} pq f | no ¬p = inj₁ (proj₁ pq)
+  -- ▷-proofHelper {st} {P} {Q} {R} {i} pq f with (⟦ R ⟧c st)
+  -- ▷-proofHelper {st} {P} {Q} {R} {i} pq f | false = inj₁ (proj₁ pq)
+  -- ▷-proofHelper {st} {P} {Q} {R} {i} pq f | true = f refl
 
   ▷-proof :
     (All (λ { (R , i) →
-      (∀{st : State} → st ⊢ (P △ ⌝ Q) → ⟦ R ⟧c st ≡ true → (⟦ i ⟧i st) ⊢ (P ▽ Q))
+      (∀{st : State} → st ⊢ (P △ ⌝ Q) → ⟦ R ⟧a st → (⟦ i ⟧i st) ⊢ (P ▽ Q))
     }) ss) →
     ∀{s0 : ConditionalInstruction} → P ▷[ (s0 , ss) ] Q
   ▷-proof {P} {Q} {[]} [] (p , ⌝q) = []
   ▷-proof {P} {Q} {(R , i) ∷ cis} (prf ∷ prfs) {s0} {st} (p , ⌝q) =
+    -- {!!}
     ▷-proofHelper {st} {P} {Q} {R} {i} (p , ⌝q) (prf (p , ⌝q))
       ∷ (▷-proof {P} {Q} {cis} prfs {s0} (p , ⌝q))
 
