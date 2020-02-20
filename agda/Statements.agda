@@ -48,7 +48,7 @@ module Statements (VarTypes : ℕ → Types) where
     A A₁ A₂ A₃ a b : Assertion
     c d : Condition
     i : Instruction
-    s0 ci : ConditionalInstruction
+    s₀ ci : ConditionalInstruction
     ss cis : List ConditionalInstruction
     S : ParallelProgram
     st : State
@@ -291,14 +291,14 @@ module Statements (VarTypes : ℕ → Types) where
   CWP (ci , P) = λ st → (⟦ ci ⟧ci st) ⊢ P
 
   PCWP : (ParallelProgram × Predicate) → Assertion
-  PCWP ((s0 , S) , P) = λ st → All (λ ci → st ⊩ (CWP (ci , P))) S
+  PCWP ((s₀ , S) , P) = λ st → All (λ ci → st ⊩ (CWP (ci , P))) S
 
   --
 
   impliesCWP : P ⇒ Q → (CWP (ci , P)) ⇛ (CWP (ci , Q))
   impliesCWP p⇒q cwp = p⇒q cwp
 
-  lessPCWP : PCWP ((s0 , (ci ∷ cis)) , P) ⇛ PCWP ((s0 , cis) , P)
+  lessPCWP : PCWP ((s₀ , (ci ∷ cis)) , P) ⇛ PCWP ((s₀ , cis) , P)
   lessPCWP (ci_prf ∷ cis_prfs) = cis_prfs
 
   -- morePCWP : ⟦ CWP (ci , P) ⟧a → PCWP (cis , P) ⇛ PCWP ((ci ∷ cis) , P)
@@ -308,7 +308,7 @@ module Statements (VarTypes : ℕ → Types) where
   impliesPCWP p⇒q [] = []
   impliesPCWP p⇒q (ci_prf ∷ cis_prfs) = p⇒q ci_prf ∷ impliesPCWP p⇒q cis_prfs
 
-  lessImpliesPCWP : (⟦ P ⟧a ⇛ (PCWP ((s0 , (ci ∷ cis)) , Q))) → (⟦ P ⟧a ⇛ (PCWP ((s0 , cis) , Q)))
+  lessImpliesPCWP : (⟦ P ⟧a ⇛ (PCWP ((s₀ , (ci ∷ cis)) , Q))) → (⟦ P ⟧a ⇛ (PCWP ((s₀ , cis) , Q)))
   lessImpliesPCWP p⇛pcwp = λ p → lessPCWP (p⇛pcwp p)
 
   --
@@ -344,7 +344,7 @@ module Statements (VarTypes : ℕ → Types) where
       (p▷[s]r (p⇐q q , ¬r))
 
 
-  lessUnless : (P ▷[ s0 , ci ∷ cis ] Q) → (P ▷[ s0 , cis ] Q)
+  lessUnless : (P ▷[ s₀ , ci ∷ cis ] Q) → (P ▷[ s₀ , cis ] Q)
   lessUnless p▷[ci∷cis]q = λ p△⌝q → lessPCWP (p▷[ci∷cis]q p△⌝q)
 
   impliesUnlessRight : Q ⇒ R → (P ▷[ S ] Q) → (P ▷[ S ] R)
@@ -401,38 +401,37 @@ module Statements (VarTypes : ℕ → Types) where
     (All (λ { (R , i) →
       (∀{st : State} → st ⊢ (P △ ⌝ Q) → ⟦ R ⟧a st → (⟦ i ⟧i st) ⊢ (P ▽ Q))
     }) ss) →
-    ∀{s0 : ConditionalInstruction} → P ▷[ (s0 , ss) ] Q
+    ∀{s₀ : ConditionalInstruction} → P ▷[ (s₀ , ss) ] Q
   ▷-proof {P} {Q} {[]} [] (p , ⌝q) = []
-  ▷-proof {P} {Q} {(R , i) ∷ cis} (prf ∷ prfs) {s0} {st} (p , ⌝q) =
-    -- {!!}
+  ▷-proof {P} {Q} {(R , i) ∷ cis} (prf ∷ prfs) {s₀} {st} (p , ⌝q) =
     ▷-proofHelper {st} {P} {Q} {R} {i} (p , ⌝q) (prf (p , ⌝q))
-      ∷ (▷-proof {P} {Q} {cis} prfs {s0} (p , ⌝q))
+      ∷ (▷-proof {P} {Q} {cis} prfs {s₀} (p , ⌝q))
 
   --
 
   -- "There exists a conditional instruction that moves from P△⌝Q to Q."
   Progress : ParallelProgram → Predicate → Predicate → Statement
-  Progress (s0 , cis) P Q = Any (λ ci → ⟦ P △ ⌝ Q ⟧a ⇛ (CWP (ci , Q))) cis
+  Progress (s₀ , cis) P Q = Any (λ ci → ⟦ P △ ⌝ Q ⟧a ⇛ (CWP (ci , Q))) cis
 
   infix 4 _↣[_]_
   _↣[_]_ : Predicate → ParallelProgram → Predicate → Statement
   _↣[_]_ P S Q = Progress S P Q
 
-  ↣-NonEmpty : P ↣[ (s0 , cis) ] Q → NonEmpty (s0 , cis)
+  ↣-NonEmpty : P ↣[ (s₀ , cis) ] Q → NonEmpty (s₀ , cis)
   ↣-NonEmpty (here px) ()
   ↣-NonEmpty (there x) ()
 
   ↣-NonEmpty-Reflexive : NonEmpty S → P ↣[ S ] P
   -- ↣-NonEmpty-Reflexive nonEmptyS = ↣-NonEmpty-from-⇒ nonEmptyS ⇒-Reflexive
-  ↣-NonEmpty-Reflexive {s0 , []} nonEmptyS = ⊥-elim (nonEmptyS refl)
-  ↣-NonEmpty-Reflexive {s0 , ci ∷ cis} nonEmptyS = here (λ { (p , ⌝p) → ⊥-elim (⌝p p) })
+  ↣-NonEmpty-Reflexive {s₀ , []} nonEmptyS = ⊥-elim (nonEmptyS refl)
+  ↣-NonEmpty-Reflexive {s₀ , ci ∷ cis} nonEmptyS = here (λ { (p , ⌝p) → ⊥-elim (⌝p p) })
 
   ↣-⇐-left : P ⇐ Q → P ↣[ S ] R → Q ↣[ S ] R
   ↣-⇐-left p⇐q p↣[s]r = anyImplies (λ { f (q , ⌝r) → f (p⇐q q , ⌝r) }) p↣[s]r
 
   ↣-NonEmpty-from-⇒ : NonEmpty S → P ⇒ Q → P ↣[ S ] Q
-  -- ↣-NonEmpty-from-⇒ {s0 , []} nonEmptyS p⇒q = ⊥-elim (nonEmptyS refl)
-  -- ↣-NonEmpty-from-⇒ {s0 , x ∷ snd} nonEmptyS p⇒q = here (λ { (p , ⌝q) → ⊥-elim (⌝q (p⇒q p)) })
+  -- ↣-NonEmpty-from-⇒ {s₀ , []} nonEmptyS p⇒q = ⊥-elim (nonEmptyS refl)
+  -- ↣-NonEmpty-from-⇒ {s₀ , x ∷ snd} nonEmptyS p⇒q = here (λ { (p , ⌝q) → ⊥-elim (⌝q (p⇒q p)) })
   ↣-NonEmpty-from-⇒ nonEmptyS p⇒q = ↣-⇐-left p⇒q (↣-NonEmpty-Reflexive nonEmptyS)
 
   ↣-⇔-left : P ⇔ Q → P ↣[ S ] R → Q ↣[ S ] R
@@ -529,10 +528,10 @@ module Statements (VarTypes : ℕ → Types) where
 
   -- inv / INV
 
-  -- P in invS(Q) = sp(s0, Q) => P /\ P => lf(S, P)
+  -- P in invS(Q) = sp(s₀, Q) => P /\ P => lf(S, P)
 
   Invariant : ParallelProgram → Predicate → Predicate → Statement
-  Invariant S@(s0 , cis) P Q = ((CSP (s0 , Q)) ⇛ ⟦ P ⟧a) × (⟦ P ⟧a ⇛ PCWP (S , P))
+  Invariant S@(s₀ , cis) P Q = ((CSP (s₀ , Q)) ⇛ ⟦ P ⟧a) × (⟦ P ⟧a ⇛ PCWP (S , P))
 
   infix 4 _∈inv[_]_
   _∈inv[_]_ : Predicate → ParallelProgram → Predicate → Statement
@@ -568,7 +567,7 @@ module Statements (VarTypes : ℕ → Types) where
   --
 
   fixpoint : ParallelProgram → Assertion
-  fixpoint S@(s0 , cis) = λ st → All (λ ci → st ≡ ⟦ ci ⟧ci st) cis
+  fixpoint S@(s₀ , cis) = λ st → All (λ ci → st ≡ ⟦ ci ⟧ci st) cis
 
   infix 4 φ[_]
   φ[_] : ParallelProgram → Assertion
@@ -602,7 +601,7 @@ module Statements (VarTypes : ℕ → Types) where
         | inj₂ b_ ∷ rest = inj₂ (inj₂ b_) ∷ pspFromEnsures₁ (lessUnless p▷[s]q) (lessUnless r▷[s]b) _p△r_△⌝_q△r▽b_
 
   pspFromEnsures₂ : P ▷[ S ] Q → R ▷[ S ] B → P ↣[ S ] Q → Progress S (P △ R) (Q △ R ▽ B)
-  pspFromEnsures₂ {P} {S = (s0 , ci ∷ cis)} {Q} {R} {B} p▷[s]q r▷[s]b (here p△⌝q⇛cwp) = here f
+  pspFromEnsures₂ {P} {S = (s₀ , ci ∷ cis)} {Q} {R} {B} p▷[s]q r▷[s]b (here p△⌝q⇛cwp) = here f
     where
       f : ⟦ (P △ R) △ (⌝ (Q △ R ▽ B)) ⟧a ⇛ CWP (ci , Q △ R ▽ B)
       f ((p , r) , ⌝_q△r▽b_) with (notOrToAndNotNot ⌝_q△r▽b_)
