@@ -36,27 +36,36 @@ open module ListNatOnlyStatements = Statements varTypes
   --   then from ∷ range (suc from) to
   --   else []
 
+
+makePredicate : ℕ → Predicate
+makePredicate n = (
+    GT (v[ 0 ] g[ ConstNat n ]) (v[ 0 ] g[ ConstNat (n + 1) ])
+  )
+
+makeInstruction : ℕ → Instruction
+makeInstruction n = (
+    Assignment [(
+      0
+      ,
+      (
+        v[ 0 ]
+        s[ ConstNat n ]=(v[ 0 ] g[ ConstNat (n + 1) ])
+        s[ ConstNat (n + 1) ]=(v[ 0 ] g[ ConstNat n ])
+      )
+    )]
+  )
+
 bubbleSort : ℕ → ParallelProgram
 bubbleSort count =
   (
     (TRUE , SKIP)
     ,
-    Data.List.map (λ x → (
+    Data.List.map
+      (λ x → (makePredicate x , makeInstruction x))
+      (downFrom count)
       -- GT (GetListNat (ConstNat x) (Var 0)) ((GetListNat (ConstNat (x + 1)) (Var 0)))
-      GT (v[ 0 ] g[ ConstNat x ]) (v[ 0 ] g[ ConstNat (x + 1) ])
-      ,
-      Assignment [(
-        0
-        ,
-        (
-          v[ 0 ]
-          s[ ConstNat x ]=(v[ 0 ] g[ ConstNat (x + 1) ])
-          s[ ConstNat (x + 1) ]=(v[ 0 ] g[ ConstNat x ])
-        )
-      )]
     -- )) (range 1 count)
     -- )) (Data.List.filter (λ y → 0 Data.Nat.<? y) (downFrom count))
-    )) (downFrom count)
   )
 
 
@@ -75,21 +84,12 @@ h1 (s≤s ())
 
 helper :
   (st ⊢ (Before △ ⌝ After)) →
-  ⟦ GT (v[ 0 ] g[ ConstNat 0 ]) (v[ 0 ] g[ ConstNat 1 ]) ⟧a st →
-  (⟦ Assignment [(
-        0
-        ,
-        (
-          v[ 0 ]
-          s[ ConstNat 0 ]=(v[ 0 ] g[ ConstNat 1 ])
-          s[ ConstNat 1 ]=(v[ 0 ] g[ ConstNat 0 ])
-        )
-      )] ⟧i st) ⊢ (Before ▽ After)
+  ⟦ makePredicate 0 ⟧a st →
+  ⟦ makeInstruction 0 ⟧i st ⊢ (Before ▽ After)
 helper {st} (before , after) gt with (getWithDefaultZero 1 (st 0))
 helper {st} (before , after) gt | zero with (st 0)
 helper {st} (before , after) gt | zero | l ∷ ls = inj₂ refl
 helper {st} (before , after) gt | suc x rewrite before = ⊥-elim (h1 gt)
--- helper (before , after) gt = inj₂ {!!}
 
 test2 : Before ▷[ bubbleSort 1 ] After
 test2 {st} =
@@ -100,36 +100,70 @@ test2 {st} =
     -- ((λ { (b , ⌝a) gt → {!!} }) ∷ [])
     {TRUE , SKIP}
 
+set-helper :
+  {n m x y : ℕ} → {l : List ℕ} →
+  (n ≢ m) →
+  (getWithDefaultZero n l ≡ x) →
+  getWithDefaultZero n (setWithDefaultEmpty m y l) ≡ x
+set-helper {n} {m} {.0} {y} {[]} neq refl = refl
+set-helper {zero} {zero} {.x} {y} {x ∷ l} neq refl = ⊥-elim (neq refl)
+set-helper {zero} {suc m} {.x} {y} {x ∷ l} neq refl = refl
+set-helper {suc n} {zero}
+  {.(getWithDefaultZero n l)} {y} {x ∷ l} neq refl = refl
+set-helper {suc n} {suc m}
+  {.(getWithDefaultZero n l)} {y} {x ∷ l} neq refl =
+    set-helper {n} {m} {_} {_} {l} (λ eq → neq (cong suc eq)) refl
 
--- test2 {st} (before , ⌝after) with (⌊
---           ⟦ GetListNat (ConstNat 0) (Example.Var 0) ⟧e st
---           >?
---           ⟦ GetListNat (ConstNat 1) (Example.Var 0) ⟧e st
---           ⌋)
--- test2 {st} (before , ⌝after) | false = (inj₂ {!!}) ∷ []
--- test2 {st} (before , ⌝after) | true = (inj₂ {!!}) ∷ []
+helper-n :
+  (n : ℕ) →
+  (st ⊢ (Before △ ⌝ After)) →
+  ⟦ makePredicate n ⟧a st →
+  ⟦ makeInstruction n ⟧i st ⊢ (Before ▽ After)
+helper-n {st} zero (before , after) gt = helper {st} (before , after) gt
+helper-n {st} (suc n) (before , after) gt =
+  inj₁ (
+    set-helper {_} {_} {_} {_} {
+      setWithDefaultEmpty (suc n) (getWithDefaultZero (suc (n + 1)) (st 0)) (st 0)
+   } (λ ()) (
+      set-helper {_} {_} {_} {_} {st 0} (λ ()) before
+    )
+  )
 
--- test2 {st} (before , ⌝after) with (⟦
---     GT
---       (v[ 0 ] g[ ConstNat 0 ])
---       (v[ 0 ] g[ ConstNat 1 ])
---   ⟧c st)
--- test2 {st} (before , ⌝after) | false = {!!} ∷ {!!}
--- test2 {st} (before , ⌝after) | true = {!!}
+test3 : Before ▷[ bubbleSort 2 ] After
+test3 {st} =
+  ▷-proof
+    {Before}
+    {After}
+    ((λ {st} → (helper-n {st} 1)) ∷ (λ {st} → (helper-n {st} 0)) ∷ [])
+    {TRUE , SKIP}
 
--- test2 {st} (before , ⌝after) with (⟦ GetListNat (ConstNat 1) (Var 0) ⟧e st)
--- test2 {st} (before , ⌝after) | zero = (inj₂ {!refl!}) ∷ []
--- test2 {st} (before , ⌝after) | suc x = (inj₁ {!!}) ∷ []
-  -- {!!} ∷
-  -- []
 
--- test3 : Before ▷[ bubbleSort 2 ] After
--- test3 {st} (before , ⌝after) =
---   {!!} ∷
---   {!!} ∷
---   []
+-- test-n : (n : ℕ) → Before ▷[ bubbleSort n ] After
+-- test-n n {st} =
+--   ▷-proof
+--     {Before}
+--     {After}
+--     {!Data.List.map (λ n → λ {st} → helper-n {st} n) (downFrom n)!}
+--     {TRUE , SKIP}
 
--- test : (n : ℕ) → Before ▷[ bubbleSort n ] After
 -- test zero {st} (before , ⌝after) = []
 -- test (suc n) {st} (before , ⌝after) = {!? ∷ ?!}
 
+After' : Predicate
+After' = EQ (v[ 0 ] g[ ConstNat 1 ]) (ConstNat 0)
+
+helper' :
+  (st ⊢ (Before △ ⌝ After')) →
+  ⟦ makePredicate 0 ⟧a st →
+  ⟦ makeInstruction 0 ⟧i st ⊢ (Before ▽ After')
+helper' {st} (before , after) gt with (getWithDefaultZero 1 (st 0))
+helper' {st} (before , after) gt | zero = ⊥-elim (after refl)
+helper' {st} (before , after) gt | suc x rewrite before = ⊥-elim (h1 gt)
+
+test2' : Before ▷[ bubbleSort 1 ] After'
+test2' {st} =
+  ▷-proof
+    {Before}
+    {After'}
+    ((λ {st} → helper' {st}) ∷ [])
+    {TRUE , SKIP}
