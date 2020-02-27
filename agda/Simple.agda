@@ -101,16 +101,29 @@ module Program (VarTypes : ℕ → Types) where
     SKIP : Instruction
     Assignment : List VarValue → Instruction
 
+  -- makeNewState : State → (x y : Var) → Dec (x ≡ y) → State
+  makeNewState :
+    State → State → (x : Vars) → (Expression (VarTypes x)) → State
+  makeNewState st₀ st var value x with (x Data.Nat.≟ var)
+  -- makeNewState st₀ var value x | yes refl = ⟦ value ⟧e st₀
+  makeNewState st₀ st var value x | yes p rewrite p = ⟦ value ⟧e st₀
+  makeNewState st₀ st var value x | no ¬p = st x
+
   assign : List VarValue → State → State → State
   assign [] st₀ st = st
   assign ((var , value) ∷ rest) st₀ st =
-    assign rest st₀ newState
-      where
-        newState : State
-        newState x with (x Data.Nat.≟ var)
-        -- newState x | yes refl = ⟦ value ⟧e st₀
-        newState x | yes p rewrite p = ⟦ value ⟧e st₀
-        newState x | no ¬p = st x
+    assign rest st₀ (makeNewState st₀ st var value)
+
+  -- assign : List VarValue → State → State → State
+  -- assign [] st₀ st = st
+  -- assign ((var , value) ∷ rest) st₀ st =
+  --   assign rest st₀ newState
+  --     where
+  --       newState : State
+  --       newState x with (x Data.Nat.≟ var)
+  --       -- newState x | yes refl = ⟦ value ⟧e st₀
+  --       newState x | yes p rewrite p = ⟦ value ⟧e st₀
+  --       newState x | no ¬p = st x
 
   ⟦_⟧i : Instruction → State → State
   ⟦ SKIP ⟧i st = st
@@ -208,6 +221,10 @@ module Program (VarTypes : ℕ → Types) where
   assertionDecidability {P} {st} with (⟦ P ⟧d st)
   assertionDecidability {P} {st} | yes p = inj₂ p
   assertionDecidability {P} {st} | no ¬p = inj₁ ¬p
+
+  -- decisionToAssertion :
+  --   {P : Predicate} → {st : State} →
+  --   ()
 
   --
 

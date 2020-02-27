@@ -573,6 +573,15 @@ module Statements (VarTypes : ℕ → Types) where
   φ[_] : ParallelProgram → Assertion
   φ[ S ] = fixpoint S
 
+  ci-helper : (st ≡ ⟦ (P , i) ⟧ci st) → (¬(⟦ P ⟧a st) ⊎ (st ≡ ⟦ i ⟧i st))
+  ci-helper {st} {P} eq with ⟦ P ⟧d st
+  ci-helper {st} {P} eq | yes p = inj₂ eq
+  ci-helper {st} {P} eq | no ¬p = inj₁ ¬p
+
+  -- fixpoint-helper :
+  --   φ[ S ] → All (λ { (p , i) → ¬ ⊎ })
+  -- fixpoint-helper fp = ?
+
   --FP
 
   FIXPOINT : ParallelProgram → Predicate → Statement

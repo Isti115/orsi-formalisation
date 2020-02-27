@@ -1,12 +1,15 @@
 open import Relation.Nullary.Decidable
 open import Data.Empty
+open import Data.Unit hiding (_≤_)
 open import Data.Bool hiding (_≤_)
 open import Data.Nat
+open import Data.Nat.Properties
 open import Data.Product
 open import Data.Sum
 open import Data.List
 open import Data.List.All
 
+open import Relation.Nullary
 open import Relation.Binary.PropositionalEquality as Eq hiding ([_])
 
 module BubbleSort where
@@ -100,6 +103,14 @@ test2 {st} =
     -- ((λ { (b , ⌝a) gt → {!!} }) ∷ [])
     {TRUE , SKIP}
 
+set-get :
+  {n x : ℕ} → {l : List ℕ} →
+  getWithDefaultZero n (setWithDefaultEmpty n x l) ≡ x
+set-get {zero} {x} {[]} = {!!}
+set-get {zero} {x} {x₁ ∷ l} = {!!}
+set-get {suc n} {x} {[]} = {!!}
+set-get {suc n} {x} {x₁ ∷ l} = {!!}
+
 set-helper :
   {n m x y : ℕ} → {l : List ℕ} →
   (n ≢ m) →
@@ -167,3 +178,66 @@ test2' {st} =
     {After'}
     ((λ {st} → helper' {st}) ∷ [])
     {TRUE , SKIP}
+
+--
+
+Ordered : ℕ → Predicate
+Ordered zero = TRUE
+Ordered (suc n) =
+  LTE (v[ 0 ] g[ ConstNat n ]) (v[ 0 ] g[ ConstNat (suc n) ])
+  △
+  (Ordered n)
+
+-- rp-h1 : {n m : ℕ} → ¬(m ≤ n) → n ≤ m
+-- rp-h1 {zero} {m} nle = z≤n
+-- rp-h1 {suc n} {zero} nle = ⊥-elim (nle z≤n)
+-- rp-h1 {suc n} {suc m} nle = s≤s (rp-h1 (λ m≤n → nle (s≤s m≤n)))
+
+-- Same as Data.Nat.Properties.≰⇒>
+-- rp-h2 : {n m : ℕ} → ¬(m ≤ n) → (Data.Nat._<_ n m)
+-- rp-h2 {m} {zero} nle = ⊥-elim (nle z≤n)
+-- rp-h2 {zero} {suc m} nle = s≤s z≤n
+-- rp-h2 {suc n} {suc m} nle = s≤s (rp-h2 (λ m≤n → nle (s≤s m≤n)))
+
+-- rp-h3 :
+--   {n : ℕ} →
+--   st ≡ ⟦ makeInstruction n ⟧i st →
+--   ⟦ v[ 0 ] g[ ConstNat n ] ⟧e st ≡ ⟦ v[ 0 ] g[ ConstNat (suc n) ] ⟧e st
+-- rp-h3 {n} eq = {!!}
+
+rp-h3' :
+  st ≡ ⟦ makeInstruction 0 ⟧i st →
+  ⟦ v[ 0 ] g[ ConstNat 0 ] ⟧e st ≡ ⟦ v[ 0 ] g[ ConstNat 1 ] ⟧e st
+rp-h3' {st} eq rewrite eq =
+  set-helper {0} {1}
+    {Program.getWithDefaultZero (λ n → ListNat) 1
+      (Program.setWithDefaultEmpty (λ n → ListNat) 1
+       (Program.getWithDefaultZero (λ n → ListNat) 0 (st 0))
+       (Program.setWithDefaultEmpty (λ n → ListNat) 0
+        (Program.getWithDefaultZero (λ n → ListNat) 1 (st 0)) (st 0)))}
+    {(Program.getWithDefaultZero (λ n → ListNat) 0 (st 0))}
+    {(Program.setWithDefaultEmpty (λ n → ListNat) 0
+        (Program.getWithDefaultZero (λ n → ListNat) 1 (st 0)) (st 0))}
+    (λ ())
+    {!!}
+   
+  -- set-helper {0} {1} {{!!}} {{!!}} {{!!}} (λ ()) {!!}
+
+
+resultProof-1 : φ[ bubbleSort 1 ] ⇛ ⟦ Ordered 1 ⟧a
+resultProof-1 {st} (fp ∷ []) with (ci-helper {st} {makePredicate 0} fp)
+resultProof-1 {st} (fp ∷ []) | inj₁ x with (≰⇒> x)
+resultProof-1 {st} (fp ∷ []) | inj₁ x | s≤s z = (z , tt)
+resultProof-1 {st} (fp ∷ []) | inj₂ y =
+  (≤-reflexive (rp-h3' y) , tt)
+
+  -- let
+  --   cih = ci-helper {st} {makePredicate 0} fp
+  -- in
+    -- (
+    --   ?
+    --   ,
+    --   tt
+    -- )
+  -- where
+  --   cih = ci-helper {st} {makePredicate 0} fp
