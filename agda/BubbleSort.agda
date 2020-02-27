@@ -89,9 +89,10 @@ helper :
   (st ⊢ (Before △ ⌝ After)) →
   ⟦ makePredicate 0 ⟧a st →
   ⟦ makeInstruction 0 ⟧i st ⊢ (Before ▽ After)
-helper {st} (before , after) gt with (getWithDefaultZero 1 (st 0))
-helper {st} (before , after) gt | zero with (st 0)
-helper {st} (before , after) gt | zero | l ∷ ls = inj₂ refl
+helper {st} (before , after) gt with ((st 0) 1)
+helper {st} (before , after) gt | zero = inj₂ refl
+-- helper {st} (before , after) gt | zero with (st 0)
+-- helper {st} (before , after) gt | zero | l ∷ ls = inj₂ refl
 helper {st} (before , after) gt | suc x rewrite before = ⊥-elim (h1 gt)
 
 test2 : Before ▷[ bubbleSort 1 ] After
@@ -104,26 +105,33 @@ test2 {st} =
     {TRUE , SKIP}
 
 set-get :
-  {n x : ℕ} → {l : List ℕ} →
-  getWithDefaultZero n (setWithDefaultEmpty n x l) ≡ x
-set-get {zero} {x} {[]} = {!!}
-set-get {zero} {x} {x₁ ∷ l} = {!!}
-set-get {suc n} {x} {[]} = {!!}
-set-get {suc n} {x} {x₁ ∷ l} = {!!}
+  {n x : ℕ} → {l : ℕ → ℕ} →
+  (setListItem n x l) n ≡ x
+set-get {n} {x} with n Data.Nat.≟ n
+set-get {n} {x} | yes p = refl
+set-get {n} {x} | no ¬p = ⊥-elim (¬p refl)
+
+-- set-get {zero} {x} {[]} = {!!}
+-- set-get {zero} {x} {x₁ ∷ l} = {!!}
+-- set-get {suc n} {x} {[]} = {!!}
+-- set-get {suc n} {x} {x₁ ∷ l} = {!!}
 
 set-helper :
-  {n m x y : ℕ} → {l : List ℕ} →
-  (n ≢ m) →
-  (getWithDefaultZero n l ≡ x) →
-  getWithDefaultZero n (setWithDefaultEmpty m y l) ≡ x
-set-helper {n} {m} {.0} {y} {[]} neq refl = refl
-set-helper {zero} {zero} {.x} {y} {x ∷ l} neq refl = ⊥-elim (neq refl)
-set-helper {zero} {suc m} {.x} {y} {x ∷ l} neq refl = refl
-set-helper {suc n} {zero}
-  {.(getWithDefaultZero n l)} {y} {x ∷ l} neq refl = refl
-set-helper {suc n} {suc m}
-  {.(getWithDefaultZero n l)} {y} {x ∷ l} neq refl =
-    set-helper {n} {m} {_} {_} {l} (λ eq → neq (cong suc eq)) refl
+  {n m x y : ℕ} → {l : ℕ → ℕ} →
+  (n ≢ m) → (l n ≡ x) →
+  (setListItem m y l) n ≡ x
+set-helper {n} {m} {x} {y} {f} neq refl with n Data.Nat.≟ m
+set-helper {n} {m} {.(f n)} {y} {f} neq refl | yes p = ⊥-elim (neq p)
+set-helper {n} {m} {.(f n)} {y} {f} neq refl | no ¬p = refl
+
+-- set-helper {n} {m} {.0} {y} {[]} neq refl = refl
+-- set-helper {zero} {zero} {.x} {y} {x ∷ l} neq refl = ⊥-elim (neq refl)
+-- set-helper {zero} {suc m} {.x} {y} {x ∷ l} neq refl = refl
+-- set-helper {suc n} {zero}
+--   {.(l n)} {y} {x ∷ l} neq refl = refl
+-- set-helper {suc n} {suc m}
+--   {.(l n)} {y} {x ∷ l} neq refl =
+--     set-helper {n} {m} {_} {_} {l} (λ eq → neq (cong suc eq)) refl
 
 helper-n :
   (n : ℕ) →
@@ -131,14 +139,14 @@ helper-n :
   ⟦ makePredicate n ⟧a st →
   ⟦ makeInstruction n ⟧i st ⊢ (Before ▽ After)
 helper-n {st} zero (before , after) gt = helper {st} (before , after) gt
-helper-n {st} (suc n) (before , after) gt =
-  inj₁ (
-    set-helper {_} {_} {_} {_} {
-      setWithDefaultEmpty (suc n) (getWithDefaultZero (suc (n + 1)) (st 0)) (st 0)
-   } (λ ()) (
-      set-helper {_} {_} {_} {_} {st 0} (λ ()) before
-    )
-  )
+helper-n {st} (suc n) (before , after) gt = inj₁ before
+  -- inj₁ (
+  --   set-helper {_} {_} {_} {_} {
+  --     setListItem (suc n) ((st 0) (suc (n + 1))) (st 0)
+  --  } (λ ()) (
+  --     set-helper {_} {_} {_} {_} {st 0} (λ ()) before
+  --   )
+  -- )
 
 test3 : Before ▷[ bubbleSort 2 ] After
 test3 {st} =
@@ -167,7 +175,7 @@ helper' :
   (st ⊢ (Before △ ⌝ After')) →
   ⟦ makePredicate 0 ⟧a st →
   ⟦ makeInstruction 0 ⟧i st ⊢ (Before ▽ After')
-helper' {st} (before , after) gt with (getWithDefaultZero 1 (st 0))
+helper' {st} (before , after) gt with ((st 0) 1)
 helper' {st} (before , after) gt | zero = ⊥-elim (after refl)
 helper' {st} (before , after) gt | suc x rewrite before = ⊥-elim (h1 gt)
 
@@ -205,22 +213,37 @@ Ordered (suc n) =
 --   ⟦ v[ 0 ] g[ ConstNat n ] ⟧e st ≡ ⟦ v[ 0 ] g[ ConstNat (suc n) ] ⟧e st
 -- rp-h3 {n} eq = {!!}
 
+fx' :
+  {A B : Set} → {f g : A → B} → (a : A) →
+  (f ≡ g) → (f a ≡ g a)
+fx' _ refl = refl
+
 rp-h3' :
   st ≡ ⟦ makeInstruction 0 ⟧i st →
   ⟦ v[ 0 ] g[ ConstNat 0 ] ⟧e st ≡ ⟦ v[ 0 ] g[ ConstNat 1 ] ⟧e st
-rp-h3' {st} eq rewrite eq =
-  set-helper {0} {1}
-    {Program.getWithDefaultZero (λ n → ListNat) 1
-      (Program.setWithDefaultEmpty (λ n → ListNat) 1
-       (Program.getWithDefaultZero (λ n → ListNat) 0 (st 0))
-       (Program.setWithDefaultEmpty (λ n → ListNat) 0
-        (Program.getWithDefaultZero (λ n → ListNat) 1 (st 0)) (st 0)))}
-    {(Program.getWithDefaultZero (λ n → ListNat) 0 (st 0))}
-    {(Program.setWithDefaultEmpty (λ n → ListNat) 0
-        (Program.getWithDefaultZero (λ n → ListNat) 1 (st 0)) (st 0))}
-    (λ ())
-    {!!}
-   
+rp-h3' {st} eq = (fx' 0 (fx' 0 eq))
+
+-- fx :
+--   {f g : ℕ → ℕ} → {n : ℕ} →
+--   (f ≡ g) → (f n ≡ g n)
+-- fx refl = refl
+
+-- rp-h3' :
+--   st ≡ ⟦ makeInstruction 0 ⟧i st →
+--   ⟦ v[ 0 ] g[ ConstNat 0 ] ⟧e st ≡ ⟦ v[ 0 ] g[ ConstNat 1 ] ⟧e st
+-- rp-h3' {st} eq = {!fx {st 0} {⟦ makeInstruction 0 ⟧i st 0} {0}!}
+-- rp-h3' {st} eq =
+--   fx {st 0} {⟦ makeInstruction 0 ⟧i st 0}
+--     {!!}
+
+-- rp-h3' {st} eq rewrite eq =
+  -- set-helper {0} {1}
+  --   {(setListItem 1 ((st 0) 0) (setListItem 0 ((st 0) 1) (st 0))) 1}
+  --   {((st 0) 0)}
+  --   {(setListItem 0 ((st 0) 1) (st 0))}
+  --   (λ ())
+    -- {!!}
+
   -- set-helper {0} {1} {{!!}} {{!!}} {{!!}} (λ ()) {!!}
 
 

@@ -25,11 +25,11 @@ data Types : Set where
 
 evaluateType : Types → Set
 evaluateType Nat = ℕ
-evaluateType ListNat = List ℕ
+evaluateType ListNat = ℕ → ℕ
 
 defaultValue : (t : Types) → (evaluateType t)
 defaultValue Nat = zero
-defaultValue ListNat = []
+defaultValue ListNat = const zero
 
 Vars : Set
 Vars = ℕ
@@ -46,7 +46,7 @@ module Program (VarTypes : ℕ → Types) where
 
   data Expression : Types → Set where
     ConstNat : ℕ → Expression Nat
-    ConstListNat : List ℕ → Expression ListNat
+    ConstListNat : (ℕ → ℕ) → Expression ListNat
     GetListNat : Expression Nat → Expression ListNat → Expression Nat
     SetListNat : Expression Nat → Expression Nat → Expression ListNat → Expression ListNat
     Var : (x : Vars) → Expression (VarTypes x)
@@ -64,28 +64,55 @@ module Program (VarTypes : ℕ → Types) where
   _s[_]=_ : Expression ListNat → Expression Nat → Expression Nat → Expression ListNat
   eln s[ ei ]= em = SetListNat ei em eln
 
-  getWithDefaultZero : ℕ → List ℕ → ℕ
-  getWithDefaultZero i [] = 0
-  getWithDefaultZero zero (n ∷ ln) = n
-  getWithDefaultZero (suc i) (n ∷ ln) = getWithDefaultZero i ln
+  listToFunction : List ℕ → ℕ → ℕ
+  listToFunction [] i = 0
+  listToFunction (n ∷ ln) zero = n
+  listToFunction (n ∷ ln) (suc i) = listToFunction ln i
 
-  setWithDefaultEmpty : ℕ → ℕ → List ℕ → List ℕ
-  setWithDefaultEmpty i m [] = []
-  setWithDefaultEmpty zero m (n ∷ ln) = m ∷ ln
-  setWithDefaultEmpty (suc i) m (n ∷ ln) = n ∷ setWithDefaultEmpty i m ln
+  functionToList : ℕ → (ℕ → ℕ) → List ℕ
+  functionToList len f = applyUpTo f len
+  -- functionToList len f = Data.List.map f (upTo len)
+
+  listEquality :
+    {A : Set} → {a b : A} → {as bs : List A} →
+    (a ≡ b) → (as ≡ bs) → (a ∷ as ≡ b ∷ bs)
+  listEquality refl refl = refl
+
+  listToFunction∘functionToList-test :
+    (ln : List ℕ) → functionToList (length ln) (listToFunction ln) ≡ ln
+  listToFunction∘functionToList-test [] = refl
+  listToFunction∘functionToList-test (n ∷ ns) =
+    listEquality refl (listToFunction∘functionToList-test ns)
+
+  -- getWithDefaultZero : ℕ → List ℕ → ℕ
+  -- getWithDefaultZero i [] = 0
+  -- getWithDefaultZero zero (n ∷ ln) = n
+  -- getWithDefaultZero (suc i) (n ∷ ln) = getWithDefaultZero i ln
+
+  setListItem : ℕ → ℕ → (ℕ → ℕ) → (ℕ → ℕ)
+  -- setListItem i n f j = if ⌊ j Data.Nat.≟ i ⌋ then n else (f j)
+  setListItem i n f j with j Data.Nat.≟ i
+  setListItem i n f j | yes p = n
+  setListItem i n f j | no ¬p = f j
+  -- then n else (f j)
+
+  -- setListItem : ℕ → ℕ → List ℕ → List ℕ
+  -- setListItem i m [] = []
+  -- setListItem zero m (n ∷ ln) = m ∷ ln
+  -- setListItem (suc i) m (n ∷ ln) = n ∷ setListItem i m ln
 
   ⟦_⟧e : {t : Types} → Expression t → State → evaluateType t
   ⟦ ConstNat n ⟧e state = n
   ⟦ ConstListNat ln ⟧e state = ln
 
   ⟦ GetListNat ei eln ⟧e state with ⟦ ei ⟧e state | ⟦ eln ⟧e state
-  ... | i | ln = getWithDefaultZero i ln
+  ... | i | ln = ln i
   -- ⟦ GetListNat i eln ⟧e state | j | [] = 0
   -- ⟦ GetListNat i eln ⟧e state | zero | n ∷ ln = n
   -- ⟦ GetListNat i eln ⟧e state | suc j | n ∷ ln = ⟦ GetListNat (ConstNat j) (ConstListNat ln) ⟧e state
 
   ⟦ SetListNat ei em eln ⟧e state with ⟦ ei ⟧e state | ⟦ em ⟧e state | ⟦ eln ⟧e state
-  ... | i | m | ln = setWithDefaultEmpty i m ln
+  ... | i | m | ln = setListItem i m ln
   -- ⟦ SetListNat zero n (x ∷ ln) ⟧e state = n ∷ ln
   -- ⟦ SetListNat (suc i) n (x ∷ ln) ⟧e state = x ∷ ⟦ SetListNat i n ln ⟧e state
 
@@ -101,29 +128,29 @@ module Program (VarTypes : ℕ → Types) where
     SKIP : Instruction
     Assignment : List VarValue → Instruction
 
-  -- makeNewState : State → (x y : Var) → Dec (x ≡ y) → State
-  makeNewState :
-    State → State → (x : Vars) → (Expression (VarTypes x)) → State
-  makeNewState st₀ st var value x with (x Data.Nat.≟ var)
-  -- makeNewState st₀ var value x | yes refl = ⟦ value ⟧e st₀
-  makeNewState st₀ st var value x | yes p rewrite p = ⟦ value ⟧e st₀
-  makeNewState st₀ st var value x | no ¬p = st x
-
-  assign : List VarValue → State → State → State
-  assign [] st₀ st = st
-  assign ((var , value) ∷ rest) st₀ st =
-    assign rest st₀ (makeNewState st₀ st var value)
+  -- -- makeNewState : State → (x y : Var) → Dec (x ≡ y) → State
+  -- makeNewState :
+  --   State → State → (x : Vars) → (Expression (VarTypes x)) → State
+  -- makeNewState st₀ st var value x with (x Data.Nat.≟ var)
+  -- -- makeNewState st₀ var value x | yes refl = ⟦ value ⟧e st₀
+  -- makeNewState st₀ st var value x | yes p rewrite p = ⟦ value ⟧e st₀
+  -- makeNewState st₀ st var value x | no ¬p = st x
 
   -- assign : List VarValue → State → State → State
   -- assign [] st₀ st = st
   -- assign ((var , value) ∷ rest) st₀ st =
-  --   assign rest st₀ newState
-  --     where
-  --       newState : State
-  --       newState x with (x Data.Nat.≟ var)
-  --       -- newState x | yes refl = ⟦ value ⟧e st₀
-  --       newState x | yes p rewrite p = ⟦ value ⟧e st₀
-  --       newState x | no ¬p = st x
+  --   assign rest st₀ (makeNewState st₀ st var value)
+
+  assign : List VarValue → State → State → State
+  assign [] st₀ st = st
+  assign ((var , value) ∷ rest) st₀ st =
+    assign rest st₀ newState
+      where
+        newState : State
+        newState x with (x Data.Nat.≟ var)
+        -- newState x | yes refl = ⟦ value ⟧e st₀
+        newState x | yes p rewrite p = ⟦ value ⟧e st₀
+        newState x | no ¬p = st x
 
   ⟦_⟧i : Instruction → State → State
   ⟦ SKIP ⟧i st = st
