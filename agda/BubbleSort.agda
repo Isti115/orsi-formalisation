@@ -9,6 +9,8 @@ open import Data.Sum
 open import Data.List
 open import Data.List.All
 
+open import Function
+
 open import Relation.Nullary
 open import Relation.Binary.PropositionalEquality as Eq hiding ([_])
 
@@ -213,15 +215,21 @@ Ordered (suc n) =
 --   ⟦ v[ 0 ] g[ ConstNat n ] ⟧e st ≡ ⟦ v[ 0 ] g[ ConstNat (suc n) ] ⟧e st
 -- rp-h3 {n} eq = {!!}
 
-fx' :
-  {A B : Set} → {f g : A → B} → (a : A) →
-  (f ≡ g) → (f a ≡ g a)
-fx' _ refl = refl
+-- fx' :
+--   {A B : Set} → {f g : A → B} → (a : A) →
+--   (f ≡ g) → (f a ≡ g a)
+-- fx' _ refl = refl
+
+-- fx'' :
+--   {A B : Set} → {f g : A → B} → (a : A) →
+--   (f ≡ g) → (f a ≡ g a)
+-- fx'' a = cong (_$ a)
 
 rp-h3' :
   st ≡ ⟦ makeInstruction 0 ⟧i st →
   ⟦ v[ 0 ] g[ ConstNat 0 ] ⟧e st ≡ ⟦ v[ 0 ] g[ ConstNat 1 ] ⟧e st
-rp-h3' {st} eq = (fx' 0 (fx' 0 eq))
+rp-h3' = cong (_$ 0) ∘ (cong (_$ 0))
+-- rp-h3' {st} eq = (fx' 0 (fx' 0 eq))
 
 -- fx :
 --   {f g : ℕ → ℕ} → {n : ℕ} →
