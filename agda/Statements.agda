@@ -1,6 +1,6 @@
 -- module Statements where
 
-{-# OPTIONS --allow-unsolved-metas #-}
+-- {-# OPTIONS --allow-unsolved-metas #-}
 
 open import Data.Unit
 open import Data.Bool
@@ -306,10 +306,11 @@ module Statements (VarTypes : ℕ → Types) where
 
   impliesPCWP : P ⇒ Q → PCWP (S , P) ⇛ PCWP (S , Q)
   impliesPCWP p⇒q [] = []
-  impliesPCWP p⇒q (ci_prf ∷ cis_prfs) = p⇒q ci_prf ∷ impliesPCWP p⇒q cis_prfs
+  impliesPCWP {P} {Q} {s0 , (ci ∷ cis)} p⇒q (ci_prf ∷ cis_prfs) =
+    p⇒q ci_prf ∷ impliesPCWP {P} {Q} {s0 , cis} p⇒q cis_prfs
 
   lessImpliesPCWP : (⟦ P ⟧a ⇛ (PCWP ((s₀ , (ci ∷ cis)) , Q))) → (⟦ P ⟧a ⇛ (PCWP ((s₀ , cis) , Q)))
-  lessImpliesPCWP p⇛pcwp = λ p → lessPCWP (p⇛pcwp p)
+  lessImpliesPCWP {P} {s₀} p⇛pcwp = λ p → lessPCWP {s₀} (p⇛pcwp p)
 
   --
 
@@ -338,18 +339,18 @@ module Statements (VarTypes : ℕ → Types) where
   ▷-from-⇒ p⇒q (p , ⌝q) = ⊥-elim (⌝q (p⇒q p))
 
   ▷-⇔-left : P ⇔ Q → P ▷[ S ] R → Q ▷[ S ] R
-  ▷-⇔-left (p⇒q , p⇐q) p▷[s]r (q , ¬r) =
-    impliesPCWP
+  ▷-⇔-left {P} {Q} {(s₀ , ss)} (p⇒q , p⇐q) p▷[s]r (q , ¬r) =
+    impliesPCWP {_} {_} {(s₀ , ss)}
       (impliesOrLeft p⇒q)
       (p▷[s]r (p⇐q q , ¬r))
 
 
   lessUnless : (P ▷[ s₀ , ci ∷ cis ] Q) → (P ▷[ s₀ , cis ] Q)
-  lessUnless p▷[ci∷cis]q = λ p△⌝q → lessPCWP (p▷[ci∷cis]q p△⌝q)
+  lessUnless {_} {s₀} p▷[ci∷cis]q = λ p△⌝q → lessPCWP {s₀} (p▷[ci∷cis]q p△⌝q)
 
   impliesUnlessRight : Q ⇒ R → (P ▷[ S ] Q) → (P ▷[ S ] R)
-  impliesUnlessRight q⇒r p▷[s]q (p , ¬r) =
-    impliesPCWP (λ { (inj₁ p) → inj₁ p ; (inj₂ q) → inj₂ (q⇒r q) }) (p▷[s]q (p , ¬r ∘ q⇒r))
+  impliesUnlessRight {_} {_} {_} {(s₀ , _)} q⇒r p▷[s]q (p , ¬r) =
+    impliesPCWP {_} {_} {(s₀ , _)} (λ { (inj₁ p) → inj₁ p ; (inj₂ q) → inj₂ (q⇒r q) }) (p▷[s]q (p , ¬r ∘ q⇒r))
 
   -- impliesUnlessRight : Q ⇒ R → (P ▷[ S ] Q) → (P ▷[ S ] R)
   -- impliesUnlessRight q⇒r p▷[s]q (p , ⌝r) with (p▷[s]q (p , (λ q → ⌝r (q⇒r q))))
@@ -358,11 +359,12 @@ module Statements (VarTypes : ℕ → Types) where
   -- ... | inj₂ q_ ∷ rest = (inj₂ (q⇒r q_ )) ∷ impliesUnlessRight q⇒r (lessUnless p▷[s]q) (p , ⌝r)
 
   weakenUnlessRight' : Q ⇒ R → (P ▷[ S ] Q) → (P ▷[ S ] (Q ▽ R))
-  weakenUnlessRight' q⇒r p∧¬q⇛pcwp (p , ¬_q∨r_) =
-    impliesPCWP weakenOrRight (p∧¬q⇛pcwp (p , (¬_q∨r_ ∘ inj₁)))
+  weakenUnlessRight' {_} {_} {_} {(s₀ , _)} q⇒r p∧¬q⇛pcwp (p , ¬_q∨r_) =
+    impliesPCWP {_} {_} {(s₀ , _)} weakenOrRight (p∧¬q⇛pcwp (p , (¬_q∨r_ ∘ inj₁)))
 
   weakenUnlessRight : (P ▷[ S ] Q) → (P ▷[ S ] (Q ▽ R))
-  weakenUnlessRight = impliesUnlessRight weaken
+  weakenUnlessRight {_} {(s₀ , _)} =
+    impliesUnlessRight {_} {_} {_} {(s₀ , _)} weaken
 
   -- weakenUnlessRight : (P ▷[ S ] Q) → (P ▷[ S ] (OR Q R))
   -- weakenUnlessRight {P} {Q = Q} p∧¬q⇛pcwp (p , ¬_q∨r_) =
@@ -370,8 +372,10 @@ module Statements (VarTypes : ℕ → Types) where
     -- λ { (p , ¬_q∨r_) → impliesPCWP {OR P Q} weakenOrRight (p∧¬q⇛pcwp (p , (λ q → ¬_q∨r_ (inj₁ q)) }
 
   unlessDisjunctive : ((P ▷[ S ] R) × (Q ▷[ S ] R)) → (P ▽ Q ▷[ S ] R)
-  unlessDisjunctive (p▷[s]r , q▷[s]r) (inj₁ p , ⌝r) = impliesPCWP (impliesOrLeft weaken) (p▷[s]r (p , ⌝r))
-  unlessDisjunctive (p▷[s]r , q▷[s]r) (inj₂ q , ⌝r) = impliesPCWP (impliesOrLeft (orCommutative ∘ weaken)) (q▷[s]r (q , ⌝r))
+  unlessDisjunctive {S = (s₀ , _)} (p▷[s]r , q▷[s]r) (inj₁ p , ⌝r) =
+    impliesPCWP {S = (s₀ , _)} (impliesOrLeft weaken) (p▷[s]r (p , ⌝r))
+  unlessDisjunctive {S = (s₀ , _)} (p▷[s]r , q▷[s]r) (inj₂ q , ⌝r) =
+    impliesPCWP {S = (s₀ , _)} (impliesOrLeft (orCommutative ∘ weaken)) (q▷[s]r (q , ⌝r))
 
   -- FALSE
   -- impliesUnlessLeft : P ⇒ Q → Q ▷[ S ] R → P ▷[ S ] R
@@ -382,7 +386,8 @@ module Statements (VarTypes : ℕ → Types) where
 
   unlessFromImplies : (P ⇒ Q) → (P ▷[ S ] Q)
   -- unlessFromImplies p⇒q (p , ¬q) = ⊥-elim (¬q (p⇒q p))
-  unlessFromImplies p⇒q = impliesUnlessRight p⇒q ▷-Reflexive
+  unlessFromImplies {S = (s₀ , _)} p⇒q =
+    impliesUnlessRight {S = (s₀ , _)} p⇒q (▷-Reflexive {S = (s₀ , _)})
 
   --
 
@@ -432,10 +437,11 @@ module Statements (VarTypes : ℕ → Types) where
   ↣-NonEmpty-from-⇒ : NonEmpty S → P ⇒ Q → P ↣[ S ] Q
   -- ↣-NonEmpty-from-⇒ {s₀ , []} nonEmptyS p⇒q = ⊥-elim (nonEmptyS refl)
   -- ↣-NonEmpty-from-⇒ {s₀ , x ∷ snd} nonEmptyS p⇒q = here (λ { (p , ⌝q) → ⊥-elim (⌝q (p⇒q p)) })
-  ↣-NonEmpty-from-⇒ nonEmptyS p⇒q = ↣-⇐-left p⇒q (↣-NonEmpty-Reflexive nonEmptyS)
+  ↣-NonEmpty-from-⇒ {S = (s₀ , _)} nonEmptyS p⇒q =
+    ↣-⇐-left {S = (s₀ , _)} p⇒q (↣-NonEmpty-Reflexive {S = (s₀ , _)} nonEmptyS)
 
   ↣-⇔-left : P ⇔ Q → P ↣[ S ] R → Q ↣[ S ] R
-  ↣-⇔-left (p⇒q , p⇐q) p↣[s]r = ↣-⇐-left p⇐q p↣[s]r
+  ↣-⇔-left {S = (s₀ , _)} (p⇒q , p⇐q) p↣[s]r = ↣-⇐-left {S = (s₀ , _)} p⇐q p↣[s]r
 
   --
 
@@ -448,16 +454,19 @@ module Statements (VarTypes : ℕ → Types) where
   _↦[_]_ P S Q = Ensures S P Q
 
   ↦-NonEmpty : P ↦[ S ] Q → NonEmpty S
-  ↦-NonEmpty (p▷[s]q , p↣[s]q) = ↣-NonEmpty p↣[s]q
+  ↦-NonEmpty {S = (s₀ , _)} (p▷[s]q , p↣[s]q) = ↣-NonEmpty {s₀ = s₀} p↣[s]q
 
   ↦-NonEmpty-Reflexive : NonEmpty S → P ↦[ S ] P
-  ↦-NonEmpty-Reflexive nonEmptyS = (▷-Reflexive , (↣-NonEmpty-Reflexive nonEmptyS))
+  ↦-NonEmpty-Reflexive {S = (s₀ , _)} nonEmptyS =
+    (▷-Reflexive {S = (s₀ , _)} , (↣-NonEmpty-Reflexive {S = (s₀ , _)} nonEmptyS))
 
   ↦-NonEmpty-from-⇒ : NonEmpty S → P ⇒ Q → P ↦[ S ] Q
-  ↦-NonEmpty-from-⇒ nonEmptyS p⇒q = (▷-from-⇒ p⇒q , ↣-NonEmpty-from-⇒ nonEmptyS p⇒q)
+  ↦-NonEmpty-from-⇒ {S = (s₀ , _)} nonEmptyS p⇒q =
+    (▷-from-⇒ {S = (s₀ , _)} p⇒q , ↣-NonEmpty-from-⇒ {S = (s₀ , _)} nonEmptyS p⇒q)
 
   ↦-⇔-left : P ⇔ Q → P ↦[ S ] R → Q ↦[ S ] R
-  ↦-⇔-left p⇔q (p▷[s]r , p↣[s]r) = (▷-⇔-left p⇔q p▷[s]r , ↣-⇔-left p⇔q p↣[s]r)
+  ↦-⇔-left {S = (s₀ , _)} p⇔q (p▷[s]r , p↣[s]r) =
+    (▷-⇔-left {S = (s₀ , _)} p⇔q p▷[s]r , ↣-⇔-left {S = (s₀ , _)} p⇔q p↣[s]r)
 
   -- FALSE
   -- impliesEnsuresLeft : P ⇒ Q → P ↦[ S ] R → Q ↦[ S ] R
@@ -492,21 +501,21 @@ module Statements (VarTypes : ℕ → Types) where
   _↪[_]_ P S Q = LeadsTo S P Q
 
   ↪-NonEmpty : P ↪[ S ] Q → NonEmpty S
-  ↪-NonEmpty (FromEnsures p↦[s]q) = ↦-NonEmpty p↦[s]q
+  ↪-NonEmpty {S = (s₀ , _)} (FromEnsures p↦[s]q) = ↦-NonEmpty {S = (s₀ , _)} p↦[s]q
   ↪-NonEmpty (Transitivity (p↪[s]p₁ , p₁↪[s]q)) = ↪-NonEmpty p₁↪[s]q
   ↪-NonEmpty (Disjunctivity (p↪[s]q , p₁↪[s]q)) = ↪-NonEmpty p₁↪[s]q
 
   ↪-NonEmpty-Reflexive : NonEmpty S → P ↪[ S ] P
-  ↪-NonEmpty-Reflexive nonEmptyS = FromEnsures (↦-NonEmpty-Reflexive nonEmptyS)
+  ↪-NonEmpty-Reflexive {S = (s₀ , _)} nonEmptyS = FromEnsures (↦-NonEmpty-Reflexive {S = (s₀ , _)} nonEmptyS)
 
   ↪-NonEmpty-from-⇒ : NonEmpty S → P ⇒ Q → P ↪[ S ] Q
-  ↪-NonEmpty-from-⇒ nonEmptyS p⇒q = FromEnsures (↦-NonEmpty-from-⇒ nonEmptyS p⇒q)
+  ↪-NonEmpty-from-⇒ {S = (s₀ , _)} nonEmptyS p⇒q = FromEnsures (↦-NonEmpty-from-⇒ {S = (s₀ , _)} nonEmptyS p⇒q)
 
   ↪-⇐-left : P ⇐ Q → P ↪[ S ] R → Q ↪[ S ] R
-  ↪-⇐-left p⇐q p↪[s]r = Transitivity (q↪[s]p , p↪[s]r)
+  ↪-⇐-left {S = (s₀ , _)} p⇐q p↪[s]r = Transitivity (q↪[s]p , p↪[s]r)
     where
       nonEmptyS = ↪-NonEmpty p↪[s]r
-      q↦[s]p = ↦-NonEmpty-from-⇒ nonEmptyS p⇐q
+      q↦[s]p = ↦-NonEmpty-from-⇒ {S = (s₀ , _)} nonEmptyS p⇐q
       q↪[s]p = FromEnsures q↦[s]p
   -- FromEnsures (↦-⇔-left p⇐q p↦[s]r)
   -- ↪-⇐-left p⇐q (Transitivity (p↪[s]q , q↪[s]r)) = {!!} -- Transitivity (↪-⇐-left p⇐q p↪[s]q , q↪[s]r)
@@ -600,14 +609,29 @@ module Statements (VarTypes : ℕ → Types) where
   -- PSP
 
   pspFromEnsures₁ : P ▷[ S ] Q → R ▷[ S ] B → (P △ R) ▷[ S ] (Q △ R ▽ B)
-  pspFromEnsures₁ p▷[s]q r▷[s]b _p△r_△⌝_q△r▽b_@((p , r) , ⌝_q△r▽b_) with (notOrToAndNotNot ⌝_q△r▽b_)
+  pspFromEnsures₁ {S = (s₀ , _)} p▷[s]q r▷[s]b _p△r_△⌝_q△r▽b_@((p , r) , ⌝_q△r▽b_) with (notOrToAndNotNot ⌝_q△r▽b_)
   ... | ⌝_q△r_ , ⌝b with (r▷[s]b (r , ⌝b))
   ...   | [] = []
   ...   | inj₁ r' ∷ rest with (p▷[s]q (p , λ q → ⌝_q△r_ (q , r)))
-  ...     | inj₁ p' ∷ rest' = inj₁ (p' , r') ∷ pspFromEnsures₁ (lessUnless p▷[s]q) (lessUnless r▷[s]b) _p△r_△⌝_q△r▽b_
-  ...     | inj₂ q' ∷ rest' = inj₂ (inj₁ (q' , r')) ∷ pspFromEnsures₁ (lessUnless p▷[s]q) (lessUnless r▷[s]b) _p△r_△⌝_q△r▽b_
-  pspFromEnsures₁ p▷[s]q r▷[s]b _p△r_△⌝_q△r▽b_@((p , r) , ⌝_q△r▽b_) | ⌝_q△r_ , ⌝b -- ...
-        | inj₂ b_ ∷ rest = inj₂ (inj₂ b_) ∷ pspFromEnsures₁ (lessUnless p▷[s]q) (lessUnless r▷[s]b) _p△r_△⌝_q△r▽b_
+  ...     | inj₁ p' ∷ rest' =
+              inj₁ (p' , r')
+              ∷
+              pspFromEnsures₁
+                {S = (s₀ , _)}
+                (lessUnless {s₀ = s₀} p▷[s]q) (lessUnless {s₀ = s₀} r▷[s]b) _p△r_△⌝_q△r▽b_
+  ...     | inj₂ q' ∷ rest' =
+              inj₂ (inj₁ (q' , r'))
+              ∷
+              pspFromEnsures₁
+                {S = (s₀ , _)}
+                (lessUnless {s₀ = s₀} p▷[s]q) (lessUnless {s₀ = s₀} r▷[s]b) _p△r_△⌝_q△r▽b_
+  pspFromEnsures₁ {S = (s₀ , _)} p▷[s]q r▷[s]b _p△r_△⌝_q△r▽b_@((p , r) , ⌝_q△r▽b_) | ⌝_q△r_ , ⌝b -- ...
+        | inj₂ b_ ∷ rest =
+            inj₂ (inj₂ b_)
+            ∷
+            pspFromEnsures₁
+              {S = (s₀ , _)}
+              (lessUnless {s₀ = s₀} p▷[s]q) (lessUnless {s₀ = s₀} r▷[s]b) _p△r_△⌝_q△r▽b_
 
   pspFromEnsures₂ : P ▷[ S ] Q → R ▷[ S ] B → P ↣[ S ] Q → Progress S (P △ R) (Q △ R ▽ B)
   pspFromEnsures₂ {P} {S = (s₀ , ci ∷ cis)} {Q} {R} {B} p▷[s]q r▷[s]b (here p△⌝q⇛cwp) = here f
@@ -620,10 +644,12 @@ module Statements (VarTypes : ℕ → Types) where
       ...     | inj₂ q' ∷ rest' = inj₁ (q' , r')
       f ((p , r) , ⌝_q△r▽b_) | ⌝_q△r_ , ⌝b -- ...
             | inj₂ b_ ∷ rest = inj₂ b_
-  pspFromEnsures₂ p▷[s]q r▷[s]b (there rest) = there (pspFromEnsures₂ (lessUnless p▷[s]q) (lessUnless r▷[s]b) rest)
+  pspFromEnsures₂ {S = (s₀ , _)} p▷[s]q r▷[s]b (there rest) =
+    there (pspFromEnsures₂ {S = (s₀ , _)} (lessUnless {s₀ = s₀} p▷[s]q) (lessUnless {s₀ = s₀} r▷[s]b) rest)
 
   pspFromEnsures : P ↦[ S ] Q → R ▷[ S ] B → (P △ R) ↦[ S ] (Q △ R ▽ B)
-  pspFromEnsures (p▷[s]q , p↣[s]q) r▷[s]b = (pspFromEnsures₁ p▷[s]q r▷[s]b , pspFromEnsures₂ p▷[s]q r▷[s]b p↣[s]q)
+  pspFromEnsures {S = (s₀ , _)} (p▷[s]q , p↣[s]q) r▷[s]b =
+    (pspFromEnsures₁ {S = (s₀ , _)} p▷[s]q r▷[s]b , pspFromEnsures₂ {S = (s₀ , _)} p▷[s]q r▷[s]b p↣[s]q)
 
   --
 
@@ -647,7 +673,7 @@ module Statements (VarTypes : ℕ → Types) where
   --     (⇔Symmetric andDistributiveRight)
   --     (Disjunctivity (PSP (p₁↪[s]q , r▷[s]b) , PSP (p₂↪[s]q , r▷[s]b)))
 
-  PSP (FromEnsures ensures , r▷[s]b) = FromEnsures (pspFromEnsures ensures r▷[s]b)
+  PSP {S = (s₀ , _)} (FromEnsures ensures , r▷[s]b) = FromEnsures (pspFromEnsures {S = (s₀ , _)} ensures r▷[s]b)
   -- PSP (Transitivity (p↪[s]p₁ , p₁↪[s]q) , r▷[s]b) = pspFromTransitivity transitivity r▷[s]b
   -- PSP (Disjunctivity disjunctivity , r▷[s]b) = pspFromDisjunctivity disjunctivity r▷[s]b
 
