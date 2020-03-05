@@ -44,7 +44,7 @@ open module ListNatOnlyStatements = Statements varTypes
 
 makePredicate : ℕ → Predicate
 makePredicate n = (
-    GT (v[ 0 ] g[ ConstNat n ]) (v[ 0 ] g[ ConstNat (n + 1) ])
+    GT (v[ 0 ] g[ ConstNat n ]) (v[ 0 ] g[ ConstNat (suc n) ])
   )
 
 makeInstruction : ℕ → Instruction
@@ -54,8 +54,8 @@ makeInstruction n = (
       ,
       (
         v[ 0 ]
-        s[ ConstNat n ]=(v[ 0 ] g[ ConstNat (n + 1) ])
-        s[ ConstNat (n + 1) ]=(v[ 0 ] g[ ConstNat n ])
+        s[ ConstNat n ]=(v[ 0 ] g[ ConstNat (suc n) ])
+        s[ ConstNat (suc n) ]=(v[ 0 ] g[ ConstNat n ])
       )
     )]
   )
@@ -191,12 +191,12 @@ test2' {st} =
 
 --
 
+Ordered' : ℕ → Predicate
+Ordered' n = LTE (v[ 0 ] g[ ConstNat n ]) (v[ 0 ] g[ ConstNat (suc n) ])
+
 Ordered : ℕ → Predicate
 Ordered zero = TRUE
-Ordered (suc n) =
-  LTE (v[ 0 ] g[ ConstNat n ]) (v[ 0 ] g[ ConstNat (suc n) ])
-  △
-  (Ordered n)
+Ordered (suc n) = Ordered' n △ (Ordered n)
 
 -- rp-h1 : {n m : ℕ} → ¬(m ≤ n) → n ≤ m
 -- rp-h1 {zero} {m} nle = z≤n
@@ -231,6 +231,51 @@ rp-h3' :
 rp-h3' = cong (_$ 0) ∘ (cong (_$ 0))
 -- rp-h3' {st} eq = (fx' 0 (fx' 0 eq))
 
+open import Relation.Nullary.Decidable
+open import Function.Equivalence
+open import Data.Bool.Properties hiding (≤-reflexive)
+
+-- rp-h4 : {n : ℕ} →
+--   st ≡ ⟦ makeInstruction n ⟧i st →
+--   ⟦ v[ 0 ] g[ ConstNat n ] ⟧e st ≡ ⟦ v[ 0 ] g[ ConstNat (suc n) ] ⟧e st
+-- rp-h4 {st} {n} eq with (
+--          -- Relation.Nullary.Decidable.map
+--          -- (Function.Equivalence.equivalence (≡ᵇ⇒≡ n (suc n))
+--          --  (≡⇒≡ᵇ n (suc n)))
+--          -- (Data.Bool.Properties.T? (n ≡ᵇ suc n))
+--          Relation.Nullary.Decidable.map
+--            (equivalence (≡ᵇ⇒≡ n (suc n)) (≡⇒≡ᵇ n (suc n)))
+--            (T? (n ≡ᵇ suc n))
+
+--      )
+-- rp-h4 {st} {n} eq | no ¬p = {!cong (_$ n) (cong (_$ 0) eq)!}
+
+rp-h5 : {n : ℕ} →
+  st 0 n ≡ ⟦ makeInstruction n ⟧i st 0 n →
+  ⟦ v[ 0 ] g[ ConstNat n ] ⟧e st ≡ ⟦ v[ 0 ] g[ ConstNat (suc n) ] ⟧e st
+rp-h5 {st} {n} eq with n Data.Nat.≟ (suc n)
+rp-h5 {st} {n} eq | no ¬p with n Data.Nat.≟ n
+rp-h5 {st} {n} eq | no ¬p | yes p = eq
+rp-h5 {st} {n} eq | no ¬p | no ¬p₁ = ⊥-elim (¬p₁ refl)
+
+rp-h4 : {n : ℕ} →
+  st ≡ ⟦ makeInstruction n ⟧i st →
+  ⟦ v[ 0 ] g[ ConstNat n ] ⟧e st ≡ ⟦ v[ 0 ] g[ ConstNat (suc n) ] ⟧e st
+rp-h4 {st} {n} eq = rp-h5 {st} (cong (_$ n) (cong (_$ 0) eq))
+-- rp-h4 {st} {n} eq
+--   with (cong (_$ n) (cong (_$ 0) eq))
+--   -- | n Data.Nat.≟ (suc n)
+--   |   Relation.Nullary.Decidable.map
+--       (Function.Equivalence.equivalence (≡ᵇ⇒≡ n (suc n))
+--       (≡⇒≡ᵇ n (suc n)))
+--       (Data.Bool.Properties.T? (n ≡ᵇ suc n))
+-- rp-h4 {st} {n} eq | eq' | no ¬p = {!!}
+-- rp-h4 {st} {n} eq | no ¬p = {!cong (_$ n) (cong (_$ 0) eq)!}
+
+-- rp-h4 {st} {n} eq with n Data.Nat.≟ (suc n)
+-- rp-h4 {st} {n} eq | no ¬p = {!cong (_$ n) (cong (_$ 0) eq)!}
+-- ... | asdf = {!cong (_$ n) (cong (_$ 0) eq)!}
+
 -- fx :
 --   {f g : ℕ → ℕ} → {n : ℕ} →
 --   (f ≡ g) → (f n ≡ g n)
@@ -262,13 +307,29 @@ resultProof-1 {st} (fp ∷ []) | inj₁ x | s≤s z = (z , tt)
 resultProof-1 {st} (fp ∷ []) | inj₂ y =
   (≤-reflexive (rp-h3' y) , tt)
 
-  -- let
-  --   cih = ci-helper {st} {makePredicate 0} fp
-  -- in
-    -- (
-    --   ?
-    --   ,
-    --   tt
-    -- )
-  -- where
-  --   cih = ci-helper {st} {makePredicate 0} fp
+resultProof' : {n : ℕ} →
+  st ≡ ⟦ makePredicate n , makeInstruction n ⟧ci st →
+  ⟦ Ordered' n ⟧a st
+resultProof' {st} {n} fp with (ci-helper {st} {makePredicate n} fp)
+resultProof' {st} {n} fp | inj₁ x with (≰⇒> x)
+resultProof' {st} {n} fp | inj₁ x | s≤s y = y
+resultProof' {st} {n} fp | inj₂ y = ≤-reflexive (rp-h4 y)
+  -- {! (cong (_$ n) (cong (_$ 0) y))!}
+  -- {!  ≤-reflexive (cong (_$ n) (cong (_$ n) y))!}
+
+resultProof-2 : φ[ bubbleSort 2 ] ⇛ ⟦ Ordered 2 ⟧a
+resultProof-2 {st} (fp1 ∷ fp2 ∷ []) =
+  resultProof' fp1 , (resultProof' fp2 , tt)
+-- resultProof-2 {st} (fp1 ∷ fp2 ∷ []) with (ci-helper {st} {makePredicate 0} fp1)
+-- resultProof-2 {st} (fp1 ∷ fp2 ∷ []) | inj₁ x with (≰⇒> x)
+-- resultProof-2 {st} (fp1 ∷ fp2 ∷ []) | inj₁ x | s≤s z = (z , tt)
+-- resultProof-2 {st} (fp1 ∷ fp2 ∷ []) | inj₂ y =
+--   (≤-reflexive (rp-h3' y) , tt)
+
+resultProof-n : {n : ℕ} → φ[ bubbleSort n ] ⇛ ⟦ Ordered n ⟧a
+resultProof-n {zero} {st} [] = tt
+resultProof-n {suc n} {st} (fp ∷ fps) =
+  resultProof' {st} {n} fp
+  ,
+  (resultProof-n {n} fps)
+  -- resultProof' fp1 , (resultProof' fp2 , tt)
