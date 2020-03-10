@@ -96,7 +96,7 @@ module Statements (VarTypes : ℕ → Types) where
 
   infix 4 _⇛_
   _⇛_ : Assertion → Assertion → Statement
-  a ⇛ b = ∀{st : State} → st ⊩ a → st ⊩ b
+  a ⇛ b = {st : State} → st ⊩ a → st ⊩ b
 
   _⇚_ : Assertion → Assertion → Statement
   a ⇚ b = b ⇛ a
@@ -291,7 +291,7 @@ module Statements (VarTypes : ℕ → Types) where
   CWP (ci , P) = λ st → (⟦ ci ⟧ci st) ⊢ P
 
   PCWP : (ParallelProgram × Predicate) → Assertion
-  PCWP ((s₀ , S) , P) = λ st → All (λ ci → st ⊩ (CWP (ci , P))) S
+  PCWP ((_ , ss) , P) = λ st → ({s₀ : ConditionalInstruction} → All (λ ci → st ⊩ (CWP (ci , P))) ss)
 
   --
 
@@ -299,22 +299,28 @@ module Statements (VarTypes : ℕ → Types) where
   impliesCWP p⇒q cwp = p⇒q cwp
 
   lessPCWP : PCWP ((s₀ , (ci ∷ cis)) , P) ⇛ PCWP ((s₀ , cis) , P)
-  lessPCWP (ci_prf ∷ cis_prfs) = cis_prfs
+  lessPCWP {s₀} pcwp with pcwp {s₀}
+  lessPCWP {s₀} pcwp | (ci_prf ∷ cis_prfs) = cis_prfs
 
   -- morePCWP : ⟦ CWP (ci , P) ⟧a → PCWP (cis , P) ⇛ PCWP ((ci ∷ cis) , P)
   -- morePCWP cwp pcwp = ?
 
   impliesPCWP : P ⇒ Q → PCWP (S , P) ⇛ PCWP (S , Q)
-  impliesPCWP p⇒q [] = []
-  impliesPCWP {P} {Q} {s0 , (ci ∷ cis)} p⇒q (ci_prf ∷ cis_prfs) =
-    p⇒q ci_prf ∷ impliesPCWP {P} {Q} {s0 , cis} p⇒q cis_prfs
+  impliesPCWP {S = s₀ , []} p⇒q pcwp = []
+  impliesPCWP {S = s₀ , ci ∷ cis} p⇒q pcwp with pcwp {s₀}
+  impliesPCWP {S = s₀ , ci ∷ cis} p⇒q pcwp | ci_prf ∷ cis_prfs =
+    (p⇒q ci_prf) ∷ impliesPCWP {S = s₀ , cis} p⇒q cis_prfs {s₀}
+
+  -- impliesPCWP p⇒q [] = []
+  -- impliesPCWP {P} {Q} {s0 , (ci ∷ cis)} p⇒q (ci_prf ∷ cis_prfs) =
+  --   p⇒q ci_prf ∷ impliesPCWP {P} {Q} {s0 , cis} p⇒q cis_prfs
 
   lessImpliesPCWP : (⟦ P ⟧a ⇛ (PCWP ((s₀ , (ci ∷ cis)) , Q))) → (⟦ P ⟧a ⇛ (PCWP ((s₀ , cis) , Q)))
-  lessImpliesPCWP {P} {s₀} p⇛pcwp = λ p → lessPCWP {s₀} (p⇛pcwp p)
+  lessImpliesPCWP {P} {s₀} p⇛pcwp = λ p → lessPCWP {s₀} (p⇛pcwp p {s₀}) {s₀}
 
-  --
+  -- --
 
-  -- Strongest Postcondition
+  -- -- Strongest Postcondition
 
   SP : (Instruction × Predicate) → Assertion
   SP (i , P) = λ st → Σ State (λ st0 → st0 ⊢ P → ⟦ i ⟧i st0 ≡ st)
@@ -322,7 +328,7 @@ module Statements (VarTypes : ℕ → Types) where
   CSP : (ConditionalInstruction × Predicate) → Assertion
   CSP (ci , P) = λ st → Σ State (λ st0 → st0 ⊢ P → ⟦ ci ⟧ci st0 ≡ st)
 
-  --
+  -- --
 
   Unless : ParallelProgram → Predicate → Predicate → Statement
   Unless S P Q = ⟦ (P △ (⌝ Q)) ⟧a ⇛ (PCWP (S , P ▽ Q))
