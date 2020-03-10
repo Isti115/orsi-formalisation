@@ -3,6 +3,7 @@ open import Data.Empty
 open import Data.Unit hiding (_≤_)
 open import Data.Bool hiding (_≤_)
 open import Data.Nat
+open import Data.Fin hiding (_≤_)
 open import Data.Nat.Properties
 open import Data.Product
 open import Data.Sum
@@ -16,14 +17,14 @@ open import Relation.Binary.PropositionalEquality as Eq hiding ([_])
 
 module BubbleSort where
 
-open import Simple
+import Simple
 import Statements
 
-varTypes : ℕ → Types
-varTypes = (λ n → ListNat)
+varTypes : Fin 1 → Simple.Types
+varTypes = (λ n → Simple.ListNat)
 
-open module ListNatOnlySimple = Simple.Program varTypes
-open module ListNatOnlyStatements = Statements varTypes
+open module ListNatOnlySimple = Simple.Program 1 varTypes
+open module ListNatOnlyStatements = Statements 1 varTypes
 
 -- module Implementation (count : ℕ) where
 
@@ -44,18 +45,18 @@ open module ListNatOnlyStatements = Statements varTypes
 
 makePredicate : ℕ → Predicate
 makePredicate n = (
-    GT (v[ 0 ] g[ ConstNat n ]) (v[ 0 ] g[ ConstNat (suc n) ])
+    GT (v[ 0F ] g[ ConstNat n ]) (v[ 0F ] g[ ConstNat (suc n) ])
   )
 
 makeInstruction : ℕ → Instruction
 makeInstruction n = (
     Assignment [(
-      0
+      0F
       ,
       (
-        v[ 0 ]
-        s[ ConstNat n ]=(v[ 0 ] g[ ConstNat (suc n) ])
-        s[ ConstNat (suc n) ]=(v[ 0 ] g[ ConstNat n ])
+        v[ 0F ]
+        s[ ConstNat n ]=(v[ 0F ] g[ ConstNat (suc n) ])
+        s[ ConstNat (suc n) ]=(v[ 0F ] g[ ConstNat n ])
       )
     )]
   )
@@ -79,10 +80,10 @@ bubbleSort count =
 --   open module Implementation
 
 Before : Predicate
-Before = EQ (v[ 0 ] g[ ConstNat 0 ]) (ConstNat 1)
+Before = EQ (v[ 0F ] g[ ConstNat 0 ]) (ConstNat 1)
 
 After : Predicate
-After = EQ (v[ 0 ] g[ ConstNat 0 ]) (ConstNat 0)
+After = EQ (v[ 0F ] g[ ConstNat 0 ]) (ConstNat 0)
 
 h1 : {x : ℕ} → suc (suc x) ≤ 1 → ⊥
 h1 (s≤s ())
@@ -91,7 +92,7 @@ helper :
   (st ⊢ (Before △ ⌝ After)) →
   ⟦ makePredicate 0 ⟧a st →
   ⟦ makeInstruction 0 ⟧i st ⊢ (Before ▽ After)
-helper {st} (before , after) gt with ((st 0) 1)
+helper {st} (before , after) gt with ((st 0F) 1)
 helper {st} (before , after) gt | zero = inj₂ refl
 -- helper {st} (before , after) gt | zero with (st 0)
 -- helper {st} (before , after) gt | zero | l ∷ ls = inj₂ refl
@@ -171,13 +172,13 @@ test3 {st} =
 -- test (suc n) {st} (before , ⌝after) = {!? ∷ ?!}
 
 After' : Predicate
-After' = EQ (v[ 0 ] g[ ConstNat 1 ]) (ConstNat 0)
+After' = EQ (v[ 0F ] g[ ConstNat 1 ]) (ConstNat 0)
 
 helper' :
   (st ⊢ (Before △ ⌝ After')) →
   ⟦ makePredicate 0 ⟧a st →
   ⟦ makeInstruction 0 ⟧i st ⊢ (Before ▽ After')
-helper' {st} (before , after) gt with ((st 0) 1)
+helper' {st} (before , after) gt with ((st 0F) 1)
 helper' {st} (before , after) gt | zero = ⊥-elim (after refl)
 helper' {st} (before , after) gt | suc x rewrite before = ⊥-elim (h1 gt)
 
@@ -192,7 +193,7 @@ test2' {st} =
 --
 
 Ordered' : ℕ → Predicate
-Ordered' n = LTE (v[ 0 ] g[ ConstNat n ]) (v[ 0 ] g[ ConstNat (suc n) ])
+Ordered' n = LTE (v[ 0F ] g[ ConstNat n ]) (v[ 0F ] g[ ConstNat (suc n) ])
 
 Ordered : ℕ → Predicate
 Ordered zero = TRUE
@@ -212,7 +213,7 @@ Ordered (suc n) = Ordered' n △ (Ordered n)
 -- rp-h3 :
 --   {n : ℕ} →
 --   st ≡ ⟦ makeInstruction n ⟧i st →
---   ⟦ v[ 0 ] g[ ConstNat n ] ⟧e st ≡ ⟦ v[ 0 ] g[ ConstNat (suc n) ] ⟧e st
+--   ⟦ v[ 0F ] g[ ConstNat n ] ⟧e st ≡ ⟦ v[ 0F ] g[ ConstNat (suc n) ] ⟧e st
 -- rp-h3 {n} eq = {!!}
 
 -- fx' :
@@ -227,8 +228,8 @@ Ordered (suc n) = Ordered' n △ (Ordered n)
 
 rp-h3' :
   st ≡ ⟦ makeInstruction 0 ⟧i st →
-  ⟦ v[ 0 ] g[ ConstNat 0 ] ⟧e st ≡ ⟦ v[ 0 ] g[ ConstNat 1 ] ⟧e st
-rp-h3' = cong (_$ 0) ∘ (cong (_$ 0))
+  ⟦ v[ 0F ] g[ ConstNat 0 ] ⟧e st ≡ ⟦ v[ 0F ] g[ ConstNat 1 ] ⟧e st
+rp-h3' = cong (_$ 0F) ∘ (cong (_$ 0F))
 -- rp-h3' {st} eq = (fx' 0 (fx' 0 eq))
 
 open import Relation.Nullary.Decidable
@@ -237,7 +238,7 @@ open import Data.Bool.Properties hiding (≤-reflexive)
 
 -- rp-h4 : {n : ℕ} →
 --   st ≡ ⟦ makeInstruction n ⟧i st →
---   ⟦ v[ 0 ] g[ ConstNat n ] ⟧e st ≡ ⟦ v[ 0 ] g[ ConstNat (suc n) ] ⟧e st
+--   ⟦ v[ 0F ] g[ ConstNat n ] ⟧e st ≡ ⟦ v[ 0F ] g[ ConstNat (suc n) ] ⟧e st
 -- rp-h4 {st} {n} eq with (
 --          -- Relation.Nullary.Decidable.map
 --          -- (Function.Equivalence.equivalence (≡ᵇ⇒≡ n (suc n))
@@ -251,8 +252,8 @@ open import Data.Bool.Properties hiding (≤-reflexive)
 -- rp-h4 {st} {n} eq | no ¬p = {!cong (_$ n) (cong (_$ 0) eq)!}
 
 rp-h5 : {n : ℕ} →
-  st 0 n ≡ ⟦ makeInstruction n ⟧i st 0 n →
-  ⟦ v[ 0 ] g[ ConstNat n ] ⟧e st ≡ ⟦ v[ 0 ] g[ ConstNat (suc n) ] ⟧e st
+  st 0F n ≡ ⟦ makeInstruction n ⟧i st 0F n →
+  ⟦ v[ 0F ] g[ ConstNat n ] ⟧e st ≡ ⟦ v[ 0F ] g[ ConstNat (suc n) ] ⟧e st
 rp-h5 {st} {n} eq with n Data.Nat.≟ (suc n)
 rp-h5 {st} {n} eq | no ¬p with n Data.Nat.≟ n
 rp-h5 {st} {n} eq | no ¬p | yes p = eq
@@ -260,8 +261,8 @@ rp-h5 {st} {n} eq | no ¬p | no ¬p₁ = ⊥-elim (¬p₁ refl)
 
 rp-h4 : {n : ℕ} →
   st ≡ ⟦ makeInstruction n ⟧i st →
-  ⟦ v[ 0 ] g[ ConstNat n ] ⟧e st ≡ ⟦ v[ 0 ] g[ ConstNat (suc n) ] ⟧e st
-rp-h4 {st} {n} eq = rp-h5 {st} (cong (_$ n) (cong (_$ 0) eq))
+  ⟦ v[ 0F ] g[ ConstNat n ] ⟧e st ≡ ⟦ v[ 0F ] g[ ConstNat (suc n) ] ⟧e st
+rp-h4 {st} {n} eq = rp-h5 {st} (cong (_$ n) (cong (_$ 0F) eq))
 -- rp-h4 {st} {n} eq
 --   with (cong (_$ n) (cong (_$ 0) eq))
 --   -- | n Data.Nat.≟ (suc n)
@@ -283,7 +284,7 @@ rp-h4 {st} {n} eq = rp-h5 {st} (cong (_$ n) (cong (_$ 0) eq))
 
 -- rp-h3' :
 --   st ≡ ⟦ makeInstruction 0 ⟧i st →
---   ⟦ v[ 0 ] g[ ConstNat 0 ] ⟧e st ≡ ⟦ v[ 0 ] g[ ConstNat 1 ] ⟧e st
+--   ⟦ v[ 0F ] g[ ConstNat 0 ] ⟧e st ≡ ⟦ v[ 0F ] g[ ConstNat 1 ] ⟧e st
 -- rp-h3' {st} eq = {!fx {st 0} {⟦ makeInstruction 0 ⟧i st 0} {0}!}
 -- rp-h3' {st} eq =
 --   fx {st 0} {⟦ makeInstruction 0 ⟧i st 0}

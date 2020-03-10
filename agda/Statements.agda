@@ -6,6 +6,7 @@ open import Data.Unit
 open import Data.Bool
 open import Data.Bool.Properties
 open import Data.Nat
+open import Data.Fin
 open import Data.Empty
 open import Data.Product
 open import Data.Sum
@@ -20,9 +21,9 @@ open import Function
 open import Simple
 -- open module NatOnly = Simple.Program (λ n → Nat)
 
-module Statements (VarTypes : ℕ → Types) where
+module Statements (varCount : ℕ) (varTypes : Fin varCount → Types) where
 
-  open module Example = Simple.Program VarTypes
+  open module Example = Simple.Program varCount varTypes
 
   ⌝_ : Predicate → Predicate
   ⌝_ = NOT

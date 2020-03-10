@@ -7,6 +7,7 @@ open import Relation.Nullary.Decidable
 open import Relation.Binary.PropositionalEquality as Eq
 open import Data.Bool
 open import Data.Nat
+open import Data.Fin hiding (_+_)
 open import Data.Unit
 open import Data.Empty
 open import Data.Product
@@ -31,16 +32,16 @@ defaultValue : (t : Types) → (evaluateType t)
 defaultValue Nat = zero
 defaultValue ListNat = const zero
 
-Vars : Set
-Vars = ℕ
+module Program (varCount : ℕ) (varTypes : Fin varCount → Types) where
 
-module Program (VarTypes : ℕ → Types) where
+  Vars : Set
+  Vars = Fin varCount
 
   State : Set
-  State = (i : Vars) → evaluateType (VarTypes i)
+  State = (i : Vars) → evaluateType (varTypes i)
 
   emptyState : State
-  emptyState = λ x → (defaultValue (VarTypes x))
+  emptyState = λ x → (defaultValue (varTypes x))
 
   -- Expression, evaluate
 
@@ -49,11 +50,11 @@ module Program (VarTypes : ℕ → Types) where
     ConstListNat : (ℕ → ℕ) → Expression ListNat
     GetListNat : Expression Nat → Expression ListNat → Expression Nat
     SetListNat : Expression Nat → Expression Nat → Expression ListNat → Expression ListNat
-    Var : (x : Vars) → Expression (VarTypes x)
+    Var : (x : Vars) → Expression (varTypes x)
     Plus : Expression Nat → Expression Nat → Expression Nat
 
   infix 3 v[_]
-  v[_] : (x : Vars) → Expression (VarTypes x)
+  v[_] : (x : Vars) → Expression (varTypes x)
   v[ x ] = Var x
 
   infix 3 _g[_]
@@ -122,7 +123,7 @@ module Program (VarTypes : ℕ → Types) where
   -- Instruction, execute
 
   VarValue : Set
-  VarValue = Σ Vars (λ x → Expression (VarTypes x))
+  VarValue = Σ Vars (λ x → Expression (varTypes x))
 
   data Instruction : Set where
     SKIP : Instruction
@@ -130,7 +131,7 @@ module Program (VarTypes : ℕ → Types) where
 
   -- -- makeNewState : State → (x y : Var) → Dec (x ≡ y) → State
   -- makeNewState :
-  --   State → State → (x : Vars) → (Expression (VarTypes x)) → State
+  --   State → State → (x : Vars) → (Expression (varTypes x)) → State
   -- makeNewState st₀ st var value x with (x Data.Nat.≟ var)
   -- -- makeNewState st₀ var value x | yes refl = ⟦ value ⟧e st₀
   -- makeNewState st₀ st var value x | yes p rewrite p = ⟦ value ⟧e st₀
@@ -147,7 +148,7 @@ module Program (VarTypes : ℕ → Types) where
     assign rest st₀ newState
       where
         newState : State
-        newState x with (x Data.Nat.≟ var)
+        newState x with (x Data.Fin.≟ var)
         -- newState x | yes refl = ⟦ value ⟧e st₀
         newState x | yes p rewrite p = ⟦ value ⟧e st₀
         newState x | no ¬p = st x
