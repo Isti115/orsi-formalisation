@@ -27,22 +27,22 @@ lemm3 : {X Y : Set} {f g : X → Y} {x : X} {y : Y} → f ≡ g → f x ≡ y �
 lemm3 refl p = p
 
 inst : Instruction
-inst = Assignment [(0F , Plus v[ 0F ] (ConstNat 1))]
+inst = Assignment [(0F , Plus v[ 0F ] (Const 1))]
 
-asdf2 : (EQ v[ 0F ] (ConstNat 1)) ▷[
+asdf2 : (EQ v[ 0F ] (Const 1)) ▷[
     (TRUE , SKIP)
     ,
     [
-      ((LT v[ 0F ] (ConstNat 3))
+      ((LT v[ 0F ] (Const 3))
       ,
-      Assignment [(0F , Plus v[ 0F ] (ConstNat 1))])
+      Assignment [(0F , Plus v[ 0F ] (Const 1))])
     ]
-  ] (EQ v[ 0F ] (ConstNat 2))
+  ] (EQ v[ 0F ] (Const 2))
 
 asdf2 =
   ▷-proof
-    {EQ v[ 0F ] (ConstNat 1)}
-    {EQ v[ 0F ] (ConstNat 2)}
+    {EQ v[ 0F ] (Const 1)}
+    {EQ v[ 0F ] (Const 2)}
     (
       (λ p⌝q r → inj₂ (cong (_+ 1) (proj₁ p⌝q)))
     ∷ [])

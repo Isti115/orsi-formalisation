@@ -20,17 +20,52 @@ open import Function
 
 -- Vars, Values, State, emptyState
 
-data Types : Set where
-  Nat : Types
-  ListNat : Types
-
+data Types : Set
 evaluateType : Types → Set
-evaluateType Nat = ℕ
-evaluateType ListNat = ℕ → ℕ
-
 defaultValue : (t : Types) → (evaluateType t)
+
+-- data QueueWithHistory (A : Types) : Set where
+--   [] : QueueWithHistory A
+--   push : QueueWithHistory A → QueueWithHistory A
+--   pop : QueueWithHistory A → QueueWithHistory A
+
+QueueWithHistory : Types → Set
+QueueWithHistory A = List (evaluateType A) × List (evaluateType A)
+
+-- hiext : {A : Set} → A → QueueWithHistory A → QueueWithHistory A
+-- hiext a (l , h) = (a ∷ l , a ∷ h)
+
+-- lorem : {A : Set} → QueueWithHistory A → QueueWithHistory A
+-- lorem (l , h) with reverse l
+-- lorem (l , h) | [] = ([] , h)
+-- lorem (l , h) | _ ∷ ls = (reverse ls , h)
+
+hiext : {A : Types} → (evaluateType A) → QueueWithHistory A → QueueWithHistory A
+hiext a (l , h) = (reverse (a ∷ reverse l) , reverse (a ∷ h))
+
+lorem : {A : Types} → QueueWithHistory A → QueueWithHistory A
+lorem ([] , h) = ([] , h)
+lorem (l ∷ ls , h) = (ls , h)
+
+lov : {A : Types} → QueueWithHistory A → (evaluateType A)
+lov {A} ([] , h) = defaultValue A
+lov (l ∷ ls , h) = l
+
+history : {A : Types} → QueueWithHistory A → QueueWithHistory A
+history (l , h) = (h , h)
+
+data Types where
+  Nat : Types
+  Array : Types → Types
+  DataChannel : Types → Types
+
+evaluateType Nat = ℕ
+evaluateType (Array A) = ℕ → (evaluateType A)
+evaluateType (DataChannel A) = QueueWithHistory A
+
 defaultValue Nat = zero
-defaultValue ListNat = const zero
+defaultValue (Array A) = const (defaultValue A)
+defaultValue (DataChannel A) = ([] , [])
 
 module Program (varCount : ℕ) (varTypes : Fin varCount → Types) where
 
@@ -46,24 +81,28 @@ module Program (varCount : ℕ) (varTypes : Fin varCount → Types) where
   -- Expression, evaluate
 
   data Expression : Types → Set where
-    ConstNat : ℕ → Expression Nat
-    ConstListNat : (ℕ → ℕ) → Expression ListNat
-    GetListNat : Expression Nat → Expression ListNat → Expression Nat
-    SetListNat : Expression Nat → Expression Nat → Expression ListNat → Expression ListNat
+    Const : {A : Types} → evaluateType A → Expression A
+    -- ConstList : {A : Types} → (evaluateType (Array A)) → Expression (Array A)
+    GetArray : {A : Types} → Expression Nat → Expression (Array A) → Expression A
+    SetArray : {A : Types} → Expression Nat → Expression A → Expression (Array A) → Expression (Array A)
     Var : (x : Vars) → Expression (varTypes x)
     Plus : Expression Nat → Expression Nat → Expression Nat
+    Hiext : {A : Types} → Expression A → Expression (DataChannel A) → Expression (DataChannel A)
+    Lov : {A : Types} → Expression (DataChannel A) → Expression A
+    Lorem : {A : Types} → Expression (DataChannel A) → Expression (DataChannel A)
+    History : {A : Types} → Expression (DataChannel A) → Expression (DataChannel A)
 
   infix 3 v[_]
   v[_] : (x : Vars) → Expression (varTypes x)
   v[ x ] = Var x
 
   infix 3 _g[_]
-  _g[_] : Expression ListNat → Expression Nat → Expression Nat
-  eln g[ ei ] = GetListNat ei eln
+  _g[_] : {A : Types} → Expression (Array A) → Expression Nat → Expression A
+  el g[ ei ] = GetArray ei el
 
   infixl 3 _s[_]=_
-  _s[_]=_ : Expression ListNat → Expression Nat → Expression Nat → Expression ListNat
-  eln s[ ei ]= em = SetListNat ei em eln
+  _s[_]=_ : {A : Types} → Expression (Array A) → Expression Nat → Expression A → Expression (Array A)
+  el s[ ei ]= ev = SetArray ei ev el
 
   listToFunction : List ℕ → ℕ → ℕ
   listToFunction [] i = 0
@@ -90,11 +129,11 @@ module Program (varCount : ℕ) (varTypes : Fin varCount → Types) where
   -- getWithDefaultZero zero (n ∷ ln) = n
   -- getWithDefaultZero (suc i) (n ∷ ln) = getWithDefaultZero i ln
 
-  setListItem : ℕ → ℕ → (ℕ → ℕ) → (ℕ → ℕ)
+  setListItem : {A : Types} → ℕ → evaluateType A → (ℕ → (evaluateType A)) → (ℕ → (evaluateType A))
   -- setListItem i n f j = if ⌊ j Data.Nat.≟ i ⌋ then n else (f j)
-  setListItem i n f j with j Data.Nat.≟ i
-  setListItem i n f j | yes p = n
-  setListItem i n f j | no ¬p = f j
+  setListItem i v f j with j Data.Nat.≟ i
+  setListItem i v f j | yes p = v
+  setListItem i v f j | no ¬p = f j
   -- then n else (f j)
 
   -- setListItem : ℕ → ℕ → List ℕ → List ℕ
@@ -103,22 +142,28 @@ module Program (varCount : ℕ) (varTypes : Fin varCount → Types) where
   -- setListItem (suc i) m (n ∷ ln) = n ∷ setListItem i m ln
 
   ⟦_⟧e : {t : Types} → Expression t → State → evaluateType t
-  ⟦ ConstNat n ⟧e state = n
-  ⟦ ConstListNat ln ⟧e state = ln
+  ⟦ Const value ⟧e state = value
+  -- ⟦ ConstArray ln ⟧e state = ln
 
-  ⟦ GetListNat ei eln ⟧e state with ⟦ ei ⟧e state | ⟦ eln ⟧e state
+  ⟦ GetArray ei eln ⟧e state with ⟦ ei ⟧e state | ⟦ eln ⟧e state
   ... | i | ln = ln i
-  -- ⟦ GetListNat i eln ⟧e state | j | [] = 0
-  -- ⟦ GetListNat i eln ⟧e state | zero | n ∷ ln = n
-  -- ⟦ GetListNat i eln ⟧e state | suc j | n ∷ ln = ⟦ GetListNat (ConstNat j) (ConstListNat ln) ⟧e state
+  -- ⟦ GetArray i eln ⟧e state | j | [] = 0
+  -- ⟦ GetArray i eln ⟧e state | zero | n ∷ ln = n
+  -- ⟦ GetArray i eln ⟧e state | suc j | n ∷ ln = ⟦ GetArray (ConstNat j) (ConstArray ln) ⟧e state
 
-  ⟦ SetListNat ei em eln ⟧e state with ⟦ ei ⟧e state | ⟦ em ⟧e state | ⟦ eln ⟧e state
+  ⟦ SetArray ei em eln ⟧e state with ⟦ ei ⟧e state | ⟦ em ⟧e state | ⟦ eln ⟧e state
   ... | i | m | ln = setListItem i m ln
-  -- ⟦ SetListNat zero n (x ∷ ln) ⟧e state = n ∷ ln
-  -- ⟦ SetListNat (suc i) n (x ∷ ln) ⟧e state = x ∷ ⟦ SetListNat i n ln ⟧e state
+  -- ⟦ SetArray zero n (x ∷ ln) ⟧e state = n ∷ ln
+  -- ⟦ SetArray (suc i) n (x ∷ ln) ⟧e state = x ∷ ⟦ SetArray i n ln ⟧e state
 
   ⟦ Var x ⟧e state = state x
   ⟦ Plus e e₁ ⟧e state = ⟦ e ⟧e state + ⟦ e₁ ⟧e state
+
+  ⟦ Hiext e e₁ ⟧e state = hiext (⟦ e ⟧e state) (⟦ e₁ ⟧e state)
+  ⟦ Lov e ⟧e state = lov (⟦ e ⟧e state)
+  ⟦ Lorem e ⟧e state = lorem (⟦ e ⟧e state)
+  ⟦ History e ⟧e state = history (⟦ e ⟧e state)
+
 
   -- Instruction, execute
 

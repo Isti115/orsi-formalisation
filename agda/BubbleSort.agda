@@ -21,7 +21,7 @@ import Simple
 import Statements
 
 varTypes : Fin 1 → Simple.Types
-varTypes = (λ n → Simple.ListNat)
+varTypes = (λ n → Simple.Array Simple.Nat)
 
 open module ListNatOnlySimple = Simple.Program 1 varTypes
 open module ListNatOnlyStatements = Statements 1 varTypes
@@ -45,7 +45,7 @@ open module ListNatOnlyStatements = Statements 1 varTypes
 
 makePredicate : ℕ → Predicate
 makePredicate n = (
-    GT (v[ 0F ] g[ ConstNat n ]) (v[ 0F ] g[ ConstNat (suc n) ])
+    GT (v[ 0F ] g[ Const n ]) (v[ 0F ] g[ Const (suc n) ])
   )
 
 makeInstruction : ℕ → Instruction
@@ -55,8 +55,8 @@ makeInstruction n = (
       ,
       (
         v[ 0F ]
-        s[ ConstNat n ]=(v[ 0F ] g[ ConstNat (suc n) ])
-        s[ ConstNat (suc n) ]=(v[ 0F ] g[ ConstNat n ])
+        s[ Const n ]=(v[ 0F ] g[ Const (suc n) ])
+        s[ Const (suc n) ]=(v[ 0F ] g[ Const n ])
       )
     )]
   )
@@ -69,7 +69,7 @@ bubbleSort count =
     Data.List.map
       (λ x → (makePredicate x , makeInstruction x))
       (downFrom count)
-      -- GT (GetListNat (ConstNat x) (Var 0)) ((GetListNat (ConstNat (x + 1)) (Var 0)))
+      -- GT (GetListNat (Const x) (Var 0)) ((GetListNat (Const (x + 1)) (Var 0)))
     -- )) (range 1 count)
     -- )) (Data.List.filter (λ y → 0 Data.Nat.<? y) (downFrom count))
   )
@@ -80,10 +80,10 @@ bubbleSort count =
 --   open module Implementation
 
 Before : Predicate
-Before = EQ (v[ 0F ] g[ ConstNat 0 ]) (ConstNat 1)
+Before = EQ (v[ 0F ] g[ Const 0 ]) (Const 1)
 
 After : Predicate
-After = EQ (v[ 0F ] g[ ConstNat 0 ]) (ConstNat 0)
+After = EQ (v[ 0F ] g[ Const 0 ]) (Const 0)
 
 h1 : {x : ℕ} → suc (suc x) ≤ 1 → ⊥
 h1 (s≤s ())
@@ -172,7 +172,7 @@ test3 {st} =
 -- test (suc n) {st} (before , ⌝after) = {!? ∷ ?!}
 
 After' : Predicate
-After' = EQ (v[ 0F ] g[ ConstNat 1 ]) (ConstNat 0)
+After' = EQ (v[ 0F ] g[ Const 1 ]) (Const 0)
 
 helper' :
   (st ⊢ (Before △ ⌝ After')) →
@@ -193,7 +193,7 @@ test2' {st} =
 --
 
 Ordered' : ℕ → Predicate
-Ordered' n = LTE (v[ 0F ] g[ ConstNat n ]) (v[ 0F ] g[ ConstNat (suc n) ])
+Ordered' n = LTE (v[ 0F ] g[ Const n ]) (v[ 0F ] g[ Const (suc n) ])
 
 Ordered : ℕ → Predicate
 Ordered zero = TRUE
@@ -213,7 +213,7 @@ Ordered (suc n) = Ordered' n △ (Ordered n)
 -- rp-h3 :
 --   {n : ℕ} →
 --   st ≡ ⟦ makeInstruction n ⟧i st →
---   ⟦ v[ 0F ] g[ ConstNat n ] ⟧e st ≡ ⟦ v[ 0F ] g[ ConstNat (suc n) ] ⟧e st
+--   ⟦ v[ 0F ] g[ Const n ] ⟧e st ≡ ⟦ v[ 0F ] g[ Const (suc n) ] ⟧e st
 -- rp-h3 {n} eq = {!!}
 
 -- fx' :
@@ -228,7 +228,7 @@ Ordered (suc n) = Ordered' n △ (Ordered n)
 
 rp-h3' :
   st ≡ ⟦ makeInstruction 0 ⟧i st →
-  ⟦ v[ 0F ] g[ ConstNat 0 ] ⟧e st ≡ ⟦ v[ 0F ] g[ ConstNat 1 ] ⟧e st
+  ⟦ v[ 0F ] g[ Const 0 ] ⟧e st ≡ ⟦ v[ 0F ] g[ Const 1 ] ⟧e st
 rp-h3' = cong (_$ 0F) ∘ (cong (_$ 0F))
 -- rp-h3' {st} eq = (fx' 0 (fx' 0 eq))
 
@@ -238,7 +238,7 @@ open import Data.Bool.Properties hiding (≤-reflexive)
 
 -- rp-h4 : {n : ℕ} →
 --   st ≡ ⟦ makeInstruction n ⟧i st →
---   ⟦ v[ 0F ] g[ ConstNat n ] ⟧e st ≡ ⟦ v[ 0F ] g[ ConstNat (suc n) ] ⟧e st
+--   ⟦ v[ 0F ] g[ Const n ] ⟧e st ≡ ⟦ v[ 0F ] g[ Const (suc n) ] ⟧e st
 -- rp-h4 {st} {n} eq with (
 --          -- Relation.Nullary.Decidable.map
 --          -- (Function.Equivalence.equivalence (≡ᵇ⇒≡ n (suc n))
@@ -253,7 +253,7 @@ open import Data.Bool.Properties hiding (≤-reflexive)
 
 rp-h5 : {n : ℕ} →
   st 0F n ≡ ⟦ makeInstruction n ⟧i st 0F n →
-  ⟦ v[ 0F ] g[ ConstNat n ] ⟧e st ≡ ⟦ v[ 0F ] g[ ConstNat (suc n) ] ⟧e st
+  ⟦ v[ 0F ] g[ Const n ] ⟧e st ≡ ⟦ v[ 0F ] g[ Const (suc n) ] ⟧e st
 rp-h5 {st} {n} eq with n Data.Nat.≟ (suc n)
 rp-h5 {st} {n} eq | no ¬p with n Data.Nat.≟ n
 rp-h5 {st} {n} eq | no ¬p | yes p = eq
@@ -261,7 +261,7 @@ rp-h5 {st} {n} eq | no ¬p | no ¬p₁ = ⊥-elim (¬p₁ refl)
 
 rp-h4 : {n : ℕ} →
   st ≡ ⟦ makeInstruction n ⟧i st →
-  ⟦ v[ 0F ] g[ ConstNat n ] ⟧e st ≡ ⟦ v[ 0F ] g[ ConstNat (suc n) ] ⟧e st
+  ⟦ v[ 0F ] g[ Const n ] ⟧e st ≡ ⟦ v[ 0F ] g[ Const (suc n) ] ⟧e st
 rp-h4 {st} {n} eq = rp-h5 {st} (cong (_$ n) (cong (_$ 0F) eq))
 -- rp-h4 {st} {n} eq
 --   with (cong (_$ n) (cong (_$ 0) eq))
@@ -284,7 +284,7 @@ rp-h4 {st} {n} eq = rp-h5 {st} (cong (_$ n) (cong (_$ 0F) eq))
 
 -- rp-h3' :
 --   st ≡ ⟦ makeInstruction 0 ⟧i st →
---   ⟦ v[ 0F ] g[ ConstNat 0 ] ⟧e st ≡ ⟦ v[ 0F ] g[ ConstNat 1 ] ⟧e st
+--   ⟦ v[ 0F ] g[ Const 0 ] ⟧e st ≡ ⟦ v[ 0F ] g[ Const 1 ] ⟧e st
 -- rp-h3' {st} eq = {!fx {st 0} {⟦ makeInstruction 0 ⟧i st 0} {0}!}
 -- rp-h3' {st} eq =
 --   fx {st 0} {⟦ makeInstruction 0 ⟧i st 0}
