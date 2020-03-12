@@ -14,13 +14,13 @@ open import Relation.Binary.PropositionalEquality as Eq hiding ([_])
 
 module ProofTest where
 
-open import Simple
+open import Base
 import Statements
 
 varTypes : Fin 1 → Types
 varTypes = (λ n → Nat)
 
-open module NatOnlySimple = Simple.Program 1 varTypes
+open module NatOnlyBase = Base.Program 1 varTypes
 open module NatOnlyStatements = Statements 1 varTypes
 
 lemm3 : {X Y : Set} {f g : X → Y} {x : X} {y : Y} → f ≡ g → f x ≡ y → g x ≡ y

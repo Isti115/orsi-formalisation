@@ -18,12 +18,12 @@ open import Relation.Nullary.Decidable hiding (True)
 open import Relation.Binary.PropositionalEquality as Eq
 open import Function
 
-open import Simple
--- open module NatOnly = Simple.Program (λ n → Nat)
+open import Base
+-- open module NatOnly = Base.Program (λ n → Nat)
 
 module Statements (varCount : ℕ) (varTypes : Fin varCount → Types) where
 
-  open module Example = Simple.Program varCount varTypes
+  open module Example = Base.Program varCount varTypes
 
   ⌝_ : Predicate → Predicate
   ⌝_ = NOT
@@ -36,12 +36,12 @@ module Statements (varCount : ℕ) (varTypes : Fin varCount → Types) where
   _▽_ : Predicate → Predicate → Predicate
   _▽_ = OR
 
-  -- open Simple.NatOnly using (NatOnly)
+  -- open Base.NatOnly using (NatOnly)
 
   -- postulate
   --   VarTypes : ℕ → Types
   --
-  -- module Example = Simple.Program VarTypes
+  -- module Example = Base.Program VarTypes
   -- open Example
 
   variable

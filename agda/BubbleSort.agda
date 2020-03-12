@@ -17,13 +17,13 @@ open import Relation.Binary.PropositionalEquality as Eq hiding ([_])
 
 module BubbleSort where
 
-import Simple
+import Base
 import Statements
 
-varTypes : Fin 1 → Simple.Types
-varTypes = (λ n → Simple.Array Simple.Nat)
+varTypes : Fin 1 → Base.Types
+varTypes = (λ n → Base.Array Base.Nat)
 
-open module ListNatOnlySimple = Simple.Program 1 varTypes
+open module ListNatOnlyBase = Base.Program 1 varTypes
 open module ListNatOnlyStatements = Statements 1 varTypes
 
 -- module Implementation (count : ℕ) where
