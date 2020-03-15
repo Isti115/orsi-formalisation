@@ -23,7 +23,7 @@ open import Base
 
 module Statements (varCount : ℕ) (varTypes : Fin varCount → Types) where
 
-  open module Example = Base.Program varCount varTypes
+  open module ProgramInstance = Base.Program varCount varTypes
 
   ⌝_ : Predicate → Predicate
   ⌝_ = NOT
@@ -41,8 +41,8 @@ module Statements (varCount : ℕ) (varTypes : Fin varCount → Types) where
   -- postulate
   --   VarTypes : ℕ → Types
   --
-  -- module Example = Base.Program VarTypes
-  -- open Example
+  -- module ProgramInstance = Base.Program VarTypes
+  -- open ProgramInstance
 
   variable
     P P₁ Q Q₁ R B :  Predicate
