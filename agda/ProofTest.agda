@@ -30,8 +30,6 @@ inst : Instruction
 inst = Assignment [(0F , Plus v[ 0F ] (Const 1))]
 
 asdf2 : (EQ v[ 0F ] (Const 1)) ▷[
-    (TRUE , SKIP)
-    ,
     [
       ((LT v[ 0F ] (Const 3))
       ,
@@ -46,4 +44,3 @@ asdf2 =
     (
       (λ p⌝q r → inj₂ (cong (_+ 1) (proj₁ p⌝q)))
     ∷ [])
-    {FALSE , SKIP}

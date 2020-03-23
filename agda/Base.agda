@@ -206,7 +206,7 @@ module Program (varCount : ℕ) (varTypes : Fin varCount → Types) where
   ⟦ History e ⟧e state = history (⟦ e ⟧e state)
 
 
-  -- Instruction, execute
+  -- Instruction and its semantics
 
   VarValue : Set
   VarValue = Σ Vars (λ x → Expression (varTypes x))
@@ -243,6 +243,9 @@ module Program (varCount : ℕ) (varTypes : Fin varCount → Types) where
   ⟦ SKIP ⟧i st = st
   ⟦ Assignment varExpressionPairs ⟧i st = assign varExpressionPairs st st
 
+
+  -- Predicate and its semantics
+
   data Predicate : Set where
     TRUE : Predicate
     FALSE : Predicate
@@ -267,15 +270,6 @@ module Program (varCount : ℕ) (varTypes : Fin varCount → Types) where
   -- infixr 5 _▽_
   -- _▽_ : Predicate → Predicate → Predicate
   -- _▽_ = OR
-
-  ConditionalInstruction : Set
-  ConditionalInstruction = (Predicate × Instruction)
-
-  ParallelProgram : Set
-  ParallelProgram = (ConditionalInstruction × List ConditionalInstruction)
-
-  NonEmpty : ParallelProgram → Set
-  NonEmpty (s0 , cis) = ¬ (cis ≡ [])
 
   Assertion : Set₁
   Assertion = State → Set
@@ -342,6 +336,9 @@ module Program (varCount : ℕ) (varTypes : Fin varCount → Types) where
 
   --
 
+  ConditionalInstruction : Set
+  ConditionalInstruction = (Predicate × Instruction)
+
   ⟦⟧ciHelper : Bool → Instruction → State → State
   ⟦⟧ciHelper false i st = st
   ⟦⟧ciHelper true i st = ⟦ i ⟧i st
@@ -351,6 +348,16 @@ module Program (varCount : ℕ) (varTypes : Fin varCount → Types) where
   -- ⟦ (p , i) ⟧ci st with ⟦ p ⟧c st
   -- ... | false = st
   -- ... | true = ⟦ i ⟧i st
+
+
+  ParallelProgram : Set
+  ParallelProgram = List ConditionalInstruction
+
+  NonEmpty : ParallelProgram → Set
+  NonEmpty S = ¬ (S ≡ [])
+
+  InitializedProgram : Set
+  InitializedProgram = (ConditionalInstruction × ParallelProgram)
 
   --
 

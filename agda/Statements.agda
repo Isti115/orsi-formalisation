@@ -50,7 +50,7 @@ module Statements (varCount : ℕ) (varTypes : Fin varCount → Types) where
     c d : Condition
     i : Instruction
     s₀ ci : ConditionalInstruction
-    ss cis : List ConditionalInstruction
+    cis : List ConditionalInstruction
     S : ParallelProgram
     st : State
     W X Y Z : Set
@@ -253,17 +253,10 @@ module Statements (varCount : ℕ) (varTypes : Fin varCount → Types) where
   notOrToAndNotNot : ⌝ (P ▽ Q) ⇒ (⌝ P) △ (⌝ Q)
   notOrToAndNotNot ¬_p∨q_ = ((¬_p∨q_ ∘ inj₁) , (¬_p∨q_ ∘ inj₂))
 
-  -- notAndToOrNotNot : NOT (AND P Q) ⇒ OR (NOT P) (NOT Q)
-  -- notAndToOrNotNot {P} {Q} {st} ¬_p∧q_ = {!   !}
-
   notAndToOrNotNot : ⌝ (P △ Q) ⇒ (⌝ P) ▽ (⌝ Q)
-  notAndToOrNotNot {P} {Q} {st} ¬_p∧q_ with assertionDecidability {P} {st}
-  notAndToOrNotNot {P} {Q} {st} ¬_p∧q_ | inj₁ ¬p = inj₁ ¬p
-  -- notAndToOrNotNot {P} {Q} {st} ¬_p∧q_ | inj₂ p = inj₂ (λ x → ¬_p∧q_ (p , x))
-  notAndToOrNotNot {P} {Q} {st} ¬_p∧q_ | inj₂ p = inj₂ ¬q
-    where
-      ¬q : st ⊢ (⌝ Q)
-      ¬q = λ q → ¬_p∧q_ (p , q)
+  notAndToOrNotNot {st = st} ¬_p∧q_ with assertionDecidability {st = st}
+  notAndToOrNotNot ¬_p∧q_ | inj₁ ¬p = inj₁ ¬p
+  notAndToOrNotNot ¬_p∧q_ | inj₂ p = inj₂ (λ q → ¬_p∧q_ (p , q))
 
   --
 
@@ -292,14 +285,14 @@ module Statements (varCount : ℕ) (varTypes : Fin varCount → Types) where
   CWP (ci , P) = λ st → (⟦ ci ⟧ci st) ⊢ P
 
   PCWP : (ParallelProgram × Predicate) → Assertion
-  PCWP ((s₀ , S) , P) = λ st → All (λ ci → st ⊩ (CWP (ci , P))) S
+  PCWP (S , P) = λ st → All (λ ci → st ⊩ (CWP (ci , P))) S
 
   --
 
   impliesCWP : P ⇒ Q → (CWP (ci , P)) ⇛ (CWP (ci , Q))
   impliesCWP p⇒q cwp = p⇒q cwp
 
-  lessPCWP : PCWP ((s₀ , (ci ∷ cis)) , P) ⇛ PCWP ((s₀ , cis) , P)
+  lessPCWP : PCWP ((ci ∷ cis) , P) ⇛ PCWP (cis , P)
   lessPCWP (ci_prf ∷ cis_prfs) = cis_prfs
 
   -- morePCWP : ⟦ CWP (ci , P) ⟧a → PCWP (cis , P) ⇛ PCWP ((ci ∷ cis) , P)
@@ -307,11 +300,10 @@ module Statements (varCount : ℕ) (varTypes : Fin varCount → Types) where
 
   impliesPCWP : P ⇒ Q → PCWP (S , P) ⇛ PCWP (S , Q)
   impliesPCWP p⇒q [] = []
-  impliesPCWP {P} {Q} {s0 , (ci ∷ cis)} p⇒q (ci_prf ∷ cis_prfs) =
-    p⇒q ci_prf ∷ impliesPCWP {P} {Q} {s0 , cis} p⇒q cis_prfs
+  impliesPCWP p⇒q (ci_prf ∷ cis_prfs) = p⇒q ci_prf ∷ impliesPCWP p⇒q cis_prfs
 
-  lessImpliesPCWP : (⟦ P ⟧a ⇛ (PCWP ((s₀ , (ci ∷ cis)) , Q))) → (⟦ P ⟧a ⇛ (PCWP ((s₀ , cis) , Q)))
-  lessImpliesPCWP {P} {s₀} p⇛pcwp = λ p → lessPCWP {s₀} (p⇛pcwp p)
+  lessImpliesPCWP : (⟦ P ⟧a ⇛ (PCWP ((ci ∷ cis) , Q))) → (⟦ P ⟧a ⇛ (PCWP (cis , Q)))
+  lessImpliesPCWP p⇛pcwp = λ p → lessPCWP (p⇛pcwp p)
 
   --
 
@@ -333,25 +325,22 @@ module Statements (varCount : ℕ) (varTypes : Fin varCount → Types) where
   _▷[_]_ P S Q = Unless S P Q
 
   ▷-Reflexive : P ▷[ S ] P
-  -- ▷-Reflexive: {P : Predicate} → (P ▷[ S ] P)
   ▷-Reflexive (p , ¬p) = ⊥-elim (¬p p)
 
   ▷-from-⇒ : P ⇒ Q → P ▷[ S ] Q
   ▷-from-⇒ p⇒q (p , ⌝q) = ⊥-elim (⌝q (p⇒q p))
 
   ▷-⇔-left : P ⇔ Q → P ▷[ S ] R → Q ▷[ S ] R
-  ▷-⇔-left {P} {Q} {(s₀ , ss)} (p⇒q , p⇐q) p▷[s]r (q , ¬r) =
-    impliesPCWP {_} {_} {(s₀ , ss)}
-      (impliesOrLeft p⇒q)
-      (p▷[s]r (p⇐q q , ¬r))
+  ▷-⇔-left (p⇒q , p⇐q) p▷[s]r (q , ¬r) =
+    impliesPCWP (impliesOrLeft p⇒q) (p▷[s]r (p⇐q q , ¬r))
 
 
-  lessUnless : (P ▷[ s₀ , ci ∷ cis ] Q) → (P ▷[ s₀ , cis ] Q)
-  lessUnless {_} {s₀} p▷[ci∷cis]q = λ p△⌝q → lessPCWP {s₀} (p▷[ci∷cis]q p△⌝q)
+  lessUnless : (P ▷[ ci ∷ cis ] Q) → (P ▷[ cis ] Q)
+  lessUnless p▷[ci∷cis]q = λ p△⌝q → lessPCWP (p▷[ci∷cis]q p△⌝q)
 
   impliesUnlessRight : Q ⇒ R → (P ▷[ S ] Q) → (P ▷[ S ] R)
-  impliesUnlessRight {_} {_} {_} {(s₀ , _)} q⇒r p▷[s]q (p , ¬r) =
-    impliesPCWP {_} {_} {(s₀ , _)} (λ { (inj₁ p) → inj₁ p ; (inj₂ q) → inj₂ (q⇒r q) }) (p▷[s]q (p , ¬r ∘ q⇒r))
+  impliesUnlessRight q⇒r p▷[s]q (p , ¬r) =
+    impliesPCWP (λ { (inj₁ p) → inj₁ p ; (inj₂ q) → inj₂ (q⇒r q) }) (p▷[s]q (p , ¬r ∘ q⇒r))
 
   -- impliesUnlessRight : Q ⇒ R → (P ▷[ S ] Q) → (P ▷[ S ] R)
   -- impliesUnlessRight q⇒r p▷[s]q (p , ⌝r) with (p▷[s]q (p , (λ q → ⌝r (q⇒r q))))
@@ -360,12 +349,11 @@ module Statements (varCount : ℕ) (varTypes : Fin varCount → Types) where
   -- ... | inj₂ q_ ∷ rest = (inj₂ (q⇒r q_ )) ∷ impliesUnlessRight q⇒r (lessUnless p▷[s]q) (p , ⌝r)
 
   weakenUnlessRight' : Q ⇒ R → (P ▷[ S ] Q) → (P ▷[ S ] (Q ▽ R))
-  weakenUnlessRight' {_} {_} {_} {(s₀ , _)} q⇒r p∧¬q⇛pcwp (p , ¬_q∨r_) =
-    impliesPCWP {_} {_} {(s₀ , _)} weakenOrRight (p∧¬q⇛pcwp (p , (¬_q∨r_ ∘ inj₁)))
+  weakenUnlessRight' q⇒r p∧¬q⇛pcwp (p , ¬_q∨r_) =
+    impliesPCWP weakenOrRight ((p∧¬q⇛pcwp (p , (¬_q∨r_ ∘ inj₁))))
 
   weakenUnlessRight : (P ▷[ S ] Q) → (P ▷[ S ] (Q ▽ R))
-  weakenUnlessRight {_} {(s₀ , _)} =
-    impliesUnlessRight {_} {_} {_} {(s₀ , _)} weaken
+  weakenUnlessRight = impliesUnlessRight weaken
 
   -- weakenUnlessRight : (P ▷[ S ] Q) → (P ▷[ S ] (OR Q R))
   -- weakenUnlessRight {P} {Q = Q} p∧¬q⇛pcwp (p , ¬_q∨r_) =
@@ -373,10 +361,10 @@ module Statements (varCount : ℕ) (varTypes : Fin varCount → Types) where
     -- λ { (p , ¬_q∨r_) → impliesPCWP {OR P Q} weakenOrRight (p∧¬q⇛pcwp (p , (λ q → ¬_q∨r_ (inj₁ q)) }
 
   unlessDisjunctive : ((P ▷[ S ] R) × (Q ▷[ S ] R)) → (P ▽ Q ▷[ S ] R)
-  unlessDisjunctive {S = (s₀ , _)} (p▷[s]r , q▷[s]r) (inj₁ p , ⌝r) =
-    impliesPCWP {S = (s₀ , _)} (impliesOrLeft weaken) (p▷[s]r (p , ⌝r))
-  unlessDisjunctive {S = (s₀ , _)} (p▷[s]r , q▷[s]r) (inj₂ q , ⌝r) =
-    impliesPCWP {S = (s₀ , _)} (impliesOrLeft (orCommutative ∘ weaken)) (q▷[s]r (q , ⌝r))
+  unlessDisjunctive (p▷[s]r , q▷[s]r) (inj₁ p , ⌝r) =
+    impliesPCWP (impliesOrLeft weaken) (p▷[s]r (p , ⌝r))
+  unlessDisjunctive (p▷[s]r , q▷[s]r) (inj₂ q , ⌝r) =
+    impliesPCWP (impliesOrLeft (orCommutative ∘ weaken)) (q▷[s]r (q , ⌝r))
 
   -- FALSE
   -- impliesUnlessLeft : P ⇒ Q → Q ▷[ S ] R → P ▷[ S ] R
@@ -387,8 +375,7 @@ module Statements (varCount : ℕ) (varTypes : Fin varCount → Types) where
 
   unlessFromImplies : (P ⇒ Q) → (P ▷[ S ] Q)
   -- unlessFromImplies p⇒q (p , ¬q) = ⊥-elim (¬q (p⇒q p))
-  unlessFromImplies {S = (s₀ , _)} p⇒q =
-    impliesUnlessRight {S = (s₀ , _)} p⇒q (▷-Reflexive {S = (s₀ , _)})
+  unlessFromImplies p⇒q = impliesUnlessRight p⇒q ▷-Reflexive
 
   --
 
@@ -396,9 +383,10 @@ module Statements (varCount : ℕ) (varTypes : Fin varCount → Types) where
     (st ⊢ (P △ ⌝ Q)) →
     (⟦ R ⟧a st → (⟦ i ⟧i st) ⊢ (P ▽ Q)) →
     ((⟦ (R , i) ⟧ci st) ⊢ (P ▽ Q))
-  ▷-proofHelper {st} {P} {Q} {R} {i} pq f with (⟦ R ⟧d st)
-  ▷-proofHelper {st} {P} {Q} {R} {i} pq f | yes p = f p
-  ▷-proofHelper {st} {P} {Q} {R} {i} pq f | no ¬p = inj₁ (proj₁ pq)
+  ▷-proofHelper {st = st} {R = R} pq f with (⟦ R ⟧d st)
+  ▷-proofHelper pq f | yes p = f p
+  ▷-proofHelper pq f | no ¬p = inj₁ (proj₁ pq)
+
   -- ▷-proofHelper {st} {P} {Q} {R} {i} pq f with (⟦ R ⟧c st)
   -- ▷-proofHelper {st} {P} {Q} {R} {i} pq f | false = inj₁ (proj₁ pq)
   -- ▷-proofHelper {st} {P} {Q} {R} {i} pq f | true = f refl
@@ -406,31 +394,31 @@ module Statements (varCount : ℕ) (varTypes : Fin varCount → Types) where
   ▷-proof :
     (All (λ { (R , i) →
       (∀{st : State} → st ⊢ (P △ ⌝ Q) → ⟦ R ⟧a st → (⟦ i ⟧i st) ⊢ (P ▽ Q))
-    }) ss) →
-    ∀{s₀ : ConditionalInstruction} → P ▷[ (s₀ , ss) ] Q
-  ▷-proof {P} {Q} {[]} [] (p , ⌝q) = []
-  ▷-proof {P} {Q} {(R , i) ∷ cis} (prf ∷ prfs) {s₀} {st} (p , ⌝q) =
-    ▷-proofHelper {st} {P} {Q} {R} {i} (p , ⌝q) (prf (p , ⌝q))
-      ∷ (▷-proof {P} {Q} {cis} prfs {s₀} (p , ⌝q))
+    }) S) →
+    P ▷[ S ] Q
+  ▷-proof [] (p , ⌝q) = []
+  ▷-proof (prf ∷ prfs) (p , ⌝q) =
+    ▷-proofHelper (p , ⌝q) (prf (p , ⌝q))
+      ∷ (▷-proof prfs (p , ⌝q))
 
   --
 
   -- "There exists a conditional instruction that moves from P△⌝Q to Q."
   Progress : ParallelProgram → Predicate → Predicate → Statement
-  Progress (s₀ , cis) P Q = Any (λ ci → ⟦ P △ ⌝ Q ⟧a ⇛ (CWP (ci , Q))) cis
+  Progress S P Q = Any (λ ci → ⟦ P △ ⌝ Q ⟧a ⇛ (CWP (ci , Q))) S
 
   infix 4 _↣[_]_
   _↣[_]_ : Predicate → ParallelProgram → Predicate → Statement
   _↣[_]_ P S Q = Progress S P Q
 
-  ↣-NonEmpty : P ↣[ (s₀ , cis) ] Q → NonEmpty (s₀ , cis)
+  ↣-NonEmpty : P ↣[ S ] Q → NonEmpty S
   ↣-NonEmpty (here px) ()
   ↣-NonEmpty (there x) ()
 
   ↣-NonEmpty-Reflexive : NonEmpty S → P ↣[ S ] P
   -- ↣-NonEmpty-Reflexive nonEmptyS = ↣-NonEmpty-from-⇒ nonEmptyS ⇒-Reflexive
-  ↣-NonEmpty-Reflexive {s₀ , []} nonEmptyS = ⊥-elim (nonEmptyS refl)
-  ↣-NonEmpty-Reflexive {s₀ , ci ∷ cis} nonEmptyS = here (λ { (p , ⌝p) → ⊥-elim (⌝p p) })
+  ↣-NonEmpty-Reflexive {[]} nonEmptyS = ⊥-elim (nonEmptyS refl)
+  ↣-NonEmpty-Reflexive {ci ∷ cis} nonEmptyS = here (λ { (p , ⌝p) → ⊥-elim (⌝p p) })
 
   ↣-⇐-left : P ⇐ Q → P ↣[ S ] R → Q ↣[ S ] R
   ↣-⇐-left p⇐q p↣[s]r = anyImplies (λ { f (q , ⌝r) → f (p⇐q q , ⌝r) }) p↣[s]r
@@ -438,11 +426,11 @@ module Statements (varCount : ℕ) (varTypes : Fin varCount → Types) where
   ↣-NonEmpty-from-⇒ : NonEmpty S → P ⇒ Q → P ↣[ S ] Q
   -- ↣-NonEmpty-from-⇒ {s₀ , []} nonEmptyS p⇒q = ⊥-elim (nonEmptyS refl)
   -- ↣-NonEmpty-from-⇒ {s₀ , x ∷ snd} nonEmptyS p⇒q = here (λ { (p , ⌝q) → ⊥-elim (⌝q (p⇒q p)) })
-  ↣-NonEmpty-from-⇒ {S = (s₀ , _)} nonEmptyS p⇒q =
-    ↣-⇐-left {S = (s₀ , _)} p⇒q (↣-NonEmpty-Reflexive {S = (s₀ , _)} nonEmptyS)
+  ↣-NonEmpty-from-⇒ nonEmptyS p⇒q =
+    ↣-⇐-left p⇒q (↣-NonEmpty-Reflexive nonEmptyS)
 
   ↣-⇔-left : P ⇔ Q → P ↣[ S ] R → Q ↣[ S ] R
-  ↣-⇔-left {S = (s₀ , _)} (p⇒q , p⇐q) p↣[s]r = ↣-⇐-left {S = (s₀ , _)} p⇐q p↣[s]r
+  ↣-⇔-left (p⇒q , p⇐q) p↣[s]r = ↣-⇐-left p⇐q p↣[s]r
 
   --
 
@@ -455,19 +443,19 @@ module Statements (varCount : ℕ) (varTypes : Fin varCount → Types) where
   _↦[_]_ P S Q = Ensures S P Q
 
   ↦-NonEmpty : P ↦[ S ] Q → NonEmpty S
-  ↦-NonEmpty {S = (s₀ , _)} (p▷[s]q , p↣[s]q) = ↣-NonEmpty {s₀ = s₀} p↣[s]q
+  ↦-NonEmpty (p▷[s]q , p↣[s]q) = ↣-NonEmpty p↣[s]q
 
   ↦-NonEmpty-Reflexive : NonEmpty S → P ↦[ S ] P
-  ↦-NonEmpty-Reflexive {S = (s₀ , _)} nonEmptyS =
-    (▷-Reflexive {S = (s₀ , _)} , (↣-NonEmpty-Reflexive {S = (s₀ , _)} nonEmptyS))
+  ↦-NonEmpty-Reflexive nonEmptyS =
+    (▷-Reflexive , (↣-NonEmpty-Reflexive nonEmptyS))
 
   ↦-NonEmpty-from-⇒ : NonEmpty S → P ⇒ Q → P ↦[ S ] Q
-  ↦-NonEmpty-from-⇒ {S = (s₀ , _)} nonEmptyS p⇒q =
-    (▷-from-⇒ {S = (s₀ , _)} p⇒q , ↣-NonEmpty-from-⇒ {S = (s₀ , _)} nonEmptyS p⇒q)
+  ↦-NonEmpty-from-⇒ nonEmptyS p⇒q =
+    (▷-from-⇒ p⇒q , ↣-NonEmpty-from-⇒ nonEmptyS p⇒q)
 
   ↦-⇔-left : P ⇔ Q → P ↦[ S ] R → Q ↦[ S ] R
-  ↦-⇔-left {S = (s₀ , _)} p⇔q (p▷[s]r , p↣[s]r) =
-    (▷-⇔-left {S = (s₀ , _)} p⇔q p▷[s]r , ↣-⇔-left {S = (s₀ , _)} p⇔q p↣[s]r)
+  ↦-⇔-left p⇔q (p▷[s]r , p↣[s]r) =
+    (▷-⇔-left p⇔q p▷[s]r , ↣-⇔-left p⇔q p↣[s]r)
 
   -- FALSE
   -- impliesEnsuresLeft : P ⇒ Q → P ↦[ S ] R → Q ↦[ S ] R
@@ -502,21 +490,21 @@ module Statements (varCount : ℕ) (varTypes : Fin varCount → Types) where
   _↪[_]_ P S Q = LeadsTo S P Q
 
   ↪-NonEmpty : P ↪[ S ] Q → NonEmpty S
-  ↪-NonEmpty {S = (s₀ , _)} (FromEnsures p↦[s]q) = ↦-NonEmpty {S = (s₀ , _)} p↦[s]q
+  ↪-NonEmpty (FromEnsures p↦[s]q) = ↦-NonEmpty p↦[s]q
   ↪-NonEmpty (Transitivity (p↪[s]p₁ , p₁↪[s]q)) = ↪-NonEmpty p₁↪[s]q
   ↪-NonEmpty (Disjunctivity (p↪[s]q , p₁↪[s]q)) = ↪-NonEmpty p₁↪[s]q
 
   ↪-NonEmpty-Reflexive : NonEmpty S → P ↪[ S ] P
-  ↪-NonEmpty-Reflexive {S = (s₀ , _)} nonEmptyS = FromEnsures (↦-NonEmpty-Reflexive {S = (s₀ , _)} nonEmptyS)
+  ↪-NonEmpty-Reflexive nonEmptyS = FromEnsures (↦-NonEmpty-Reflexive nonEmptyS)
 
   ↪-NonEmpty-from-⇒ : NonEmpty S → P ⇒ Q → P ↪[ S ] Q
-  ↪-NonEmpty-from-⇒ {S = (s₀ , _)} nonEmptyS p⇒q = FromEnsures (↦-NonEmpty-from-⇒ {S = (s₀ , _)} nonEmptyS p⇒q)
+  ↪-NonEmpty-from-⇒ nonEmptyS p⇒q = FromEnsures (↦-NonEmpty-from-⇒ nonEmptyS p⇒q)
 
   ↪-⇐-left : P ⇐ Q → P ↪[ S ] R → Q ↪[ S ] R
-  ↪-⇐-left {S = (s₀ , _)} p⇐q p↪[s]r = Transitivity (q↪[s]p , p↪[s]r)
+  ↪-⇐-left p⇐q p↪[s]r = Transitivity (q↪[s]p , p↪[s]r)
     where
       nonEmptyS = ↪-NonEmpty p↪[s]r
-      q↦[s]p = ↦-NonEmpty-from-⇒ {S = (s₀ , _)} nonEmptyS p⇐q
+      q↦[s]p = ↦-NonEmpty-from-⇒ nonEmptyS p⇐q
       q↪[s]p = FromEnsures q↦[s]p
   -- FromEnsures (↦-⇔-left p⇐q p↦[s]r)
   -- ↪-⇐-left p⇐q (Transitivity (p↪[s]q , q↪[s]r)) = {!!} -- Transitivity (↪-⇐-left p⇐q p↪[s]q , q↪[s]r)
@@ -540,31 +528,31 @@ module Statements (varCount : ℕ) (varTypes : Fin varCount → Types) where
 
   -- P in invS(Q) = sp(s₀, Q) => P /\ P => lf(S, P)
 
-  Invariant : ParallelProgram → Predicate → Predicate → Statement
-  Invariant S@(s₀ , cis) P Q = ((CSP (s₀ , Q)) ⇛ ⟦ P ⟧a) × (⟦ P ⟧a ⇛ PCWP (S , P))
+  Invariant : InitializedProgram → Predicate → Predicate → Statement
+  Invariant I@(s₀ , S) P Q = ((CSP (s₀ , Q)) ⇛ ⟦ P ⟧a) × (⟦ P ⟧a ⇛ PCWP (S , P))
 
   infix 4 _∈inv[_]_
-  _∈inv[_]_ : Predicate → ParallelProgram → Predicate → Statement
-  P ∈inv[ S ] Q = Invariant S P Q
+  _∈inv[_]_ : Predicate → InitializedProgram → Predicate → Statement
+  P ∈inv[ I ] Q = Invariant I P Q
 
   -- Invariant : ParallelProgram -> Predicate -> Statement
   -- Invariant S P = ⟦ P ⟧a ⇛ (PCWP (S , P))
 
-  INVARIANT : ParallelProgram → Predicate → Assertion
-  INVARIANT S Q = λ st → ∀{P} → Invariant S P Q → st ⊢ P
+  INVARIANT : InitializedProgram → Predicate → Assertion
+  INVARIANT I Q = λ st → ∀{P} → Invariant I P Q → st ⊢ P
 
   infix 4 INV[_]
-  INV[_] : ParallelProgram → Predicate → Assertion
-  INV[ S ] = INVARIANT S
+  INV[_] : InitializedProgram → Predicate → Assertion
+  INV[ I ] = INVARIANT I
 
-  --
+  
 
-  True : ParallelProgram → Predicate → Predicate → Statement
-  True S P Q = INVARIANT S Q ⇛ ⟦ P ⟧a
+  True : InitializedProgram → Predicate → Predicate → Statement
+  True I P Q = INVARIANT I Q ⇛ ⟦ P ⟧a
 
   infix 4 _∈true[_]_
-  _∈true[_]_ : Predicate → ParallelProgram → Predicate → Statement
-  P ∈true[ S ] Q = True S P Q
+  _∈true[_]_ : Predicate → InitializedProgram → Predicate → Statement
+  P ∈true[ I ] Q = True I P Q
 
   --
 
@@ -577,7 +565,7 @@ module Statements (varCount : ℕ) (varTypes : Fin varCount → Types) where
   --
 
   fixpoint : ParallelProgram → Assertion
-  fixpoint S@(s₀ , cis) = λ st → All (λ ci → st ≡ ⟦ ci ⟧ci st) cis
+  fixpoint S = λ st → All (λ ci → st ≡ ⟦ ci ⟧ci st) S
 
   infix 4 φ[_]
   φ[_] : ParallelProgram → Assertion
@@ -585,8 +573,8 @@ module Statements (varCount : ℕ) (varTypes : Fin varCount → Types) where
 
   ci-helper : (st ≡ ⟦ (P , i) ⟧ci st) → (¬(⟦ P ⟧a st) ⊎ (st ≡ ⟦ i ⟧i st))
   ci-helper {st} {P} eq with ⟦ P ⟧d st
-  ci-helper {st} {P} eq | yes p = inj₂ eq
-  ci-helper {st} {P} eq | no ¬p = inj₁ ¬p
+  ci-helper eq | yes p = inj₂ eq
+  ci-helper eq | no ¬p = inj₁ ¬p
 
   -- fixpoint-helper :
   --   φ[ S ] → All (λ { (p , i) → ¬ ⊎ })
@@ -610,7 +598,7 @@ module Statements (varCount : ℕ) (varTypes : Fin varCount → Types) where
   -- PSP
 
   pspFromEnsures₁ : P ▷[ S ] Q → R ▷[ S ] B → (P △ R) ▷[ S ] (Q △ R ▽ B)
-  pspFromEnsures₁ {S = (s₀ , _)} p▷[s]q r▷[s]b _p△r_△⌝_q△r▽b_@((p , r) , ⌝_q△r▽b_) with (notOrToAndNotNot ⌝_q△r▽b_)
+  pspFromEnsures₁ p▷[s]q r▷[s]b _p△r_△⌝_q△r▽b_@((p , r) , ⌝_q△r▽b_) with (notOrToAndNotNot ⌝_q△r▽b_)
   ... | ⌝_q△r_ , ⌝b with (r▷[s]b (r , ⌝b))
   ...   | [] = []
   ...   | inj₁ r' ∷ rest with (p▷[s]q (p , λ q → ⌝_q△r_ (q , r)))
@@ -618,24 +606,21 @@ module Statements (varCount : ℕ) (varTypes : Fin varCount → Types) where
               inj₁ (p' , r')
               ∷
               pspFromEnsures₁
-                {S = (s₀ , _)}
-                (lessUnless {s₀ = s₀} p▷[s]q) (lessUnless {s₀ = s₀} r▷[s]b) _p△r_△⌝_q△r▽b_
+                (lessUnless p▷[s]q) (lessUnless r▷[s]b) _p△r_△⌝_q△r▽b_
   ...     | inj₂ q' ∷ rest' =
               inj₂ (inj₁ (q' , r'))
               ∷
               pspFromEnsures₁
-                {S = (s₀ , _)}
-                (lessUnless {s₀ = s₀} p▷[s]q) (lessUnless {s₀ = s₀} r▷[s]b) _p△r_△⌝_q△r▽b_
-  pspFromEnsures₁ {S = (s₀ , _)} p▷[s]q r▷[s]b _p△r_△⌝_q△r▽b_@((p , r) , ⌝_q△r▽b_) | ⌝_q△r_ , ⌝b -- ...
+                (lessUnless p▷[s]q) (lessUnless r▷[s]b) _p△r_△⌝_q△r▽b_
+  pspFromEnsures₁ p▷[s]q r▷[s]b _p△r_△⌝_q△r▽b_@((p , r) , ⌝_q△r▽b_) | ⌝_q△r_ , ⌝b -- ...
         | inj₂ b_ ∷ rest =
             inj₂ (inj₂ b_)
             ∷
             pspFromEnsures₁
-              {S = (s₀ , _)}
-              (lessUnless {s₀ = s₀} p▷[s]q) (lessUnless {s₀ = s₀} r▷[s]b) _p△r_△⌝_q△r▽b_
+              (lessUnless p▷[s]q) (lessUnless r▷[s]b) _p△r_△⌝_q△r▽b_
 
   pspFromEnsures₂ : P ▷[ S ] Q → R ▷[ S ] B → P ↣[ S ] Q → Progress S (P △ R) (Q △ R ▽ B)
-  pspFromEnsures₂ {P} {S = (s₀ , ci ∷ cis)} {Q} {R} {B} p▷[s]q r▷[s]b (here p△⌝q⇛cwp) = here f
+  pspFromEnsures₂ {P} {S = (ci ∷ cis)} {Q} {R} {B} p▷[s]q r▷[s]b (here p△⌝q⇛cwp) = here f
     where
       f : ⟦ (P △ R) △ (⌝ (Q △ R ▽ B)) ⟧a ⇛ CWP (ci , Q △ R ▽ B)
       f ((p , r) , ⌝_q△r▽b_) with (notOrToAndNotNot ⌝_q△r▽b_)
@@ -645,12 +630,12 @@ module Statements (varCount : ℕ) (varTypes : Fin varCount → Types) where
       ...     | inj₂ q' ∷ rest' = inj₁ (q' , r')
       f ((p , r) , ⌝_q△r▽b_) | ⌝_q△r_ , ⌝b -- ...
             | inj₂ b_ ∷ rest = inj₂ b_
-  pspFromEnsures₂ {S = (s₀ , _)} p▷[s]q r▷[s]b (there rest) =
-    there (pspFromEnsures₂ {S = (s₀ , _)} (lessUnless {s₀ = s₀} p▷[s]q) (lessUnless {s₀ = s₀} r▷[s]b) rest)
+  pspFromEnsures₂ p▷[s]q r▷[s]b (there rest) =
+    there (pspFromEnsures₂ (lessUnless p▷[s]q) (lessUnless r▷[s]b) rest)
 
   pspFromEnsures : P ↦[ S ] Q → R ▷[ S ] B → (P △ R) ↦[ S ] (Q △ R ▽ B)
-  pspFromEnsures {S = (s₀ , _)} (p▷[s]q , p↣[s]q) r▷[s]b =
-    (pspFromEnsures₁ {S = (s₀ , _)} p▷[s]q r▷[s]b , pspFromEnsures₂ {S = (s₀ , _)} p▷[s]q r▷[s]b p↣[s]q)
+  pspFromEnsures (p▷[s]q , p↣[s]q) r▷[s]b =
+    (pspFromEnsures₁ p▷[s]q r▷[s]b , pspFromEnsures₂ p▷[s]q r▷[s]b p↣[s]q)
 
   --
 
@@ -674,7 +659,7 @@ module Statements (varCount : ℕ) (varTypes : Fin varCount → Types) where
   --     (⇔Symmetric andDistributiveRight)
   --     (Disjunctivity (PSP (p₁↪[s]q , r▷[s]b) , PSP (p₂↪[s]q , r▷[s]b)))
 
-  PSP {S = (s₀ , _)} (FromEnsures ensures , r▷[s]b) = FromEnsures (pspFromEnsures {S = (s₀ , _)} ensures r▷[s]b)
+  PSP (FromEnsures ensures , r▷[s]b) = FromEnsures (pspFromEnsures ensures r▷[s]b)
   -- PSP (Transitivity (p↪[s]p₁ , p₁↪[s]q) , r▷[s]b) = pspFromTransitivity transitivity r▷[s]b
   -- PSP (Disjunctivity disjunctivity , r▷[s]b) = pspFromDisjunctivity disjunctivity r▷[s]b
 

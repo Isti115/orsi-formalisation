@@ -64,8 +64,6 @@ makeInstruction n = (
 bubbleSort : ℕ → ParallelProgram
 bubbleSort count =
   (
-    (TRUE , SKIP)
-    ,
     Data.List.map
       (λ x → (makePredicate x , makeInstruction x))
       (downFrom count)
@@ -105,7 +103,6 @@ test2 {st} =
     {After}
     ((λ {st} → (helper {st})) ∷ [])
     -- ((λ { (b , ⌝a) gt → {!!} }) ∷ [])
-    {TRUE , SKIP}
 
 set-get :
   {n x : ℕ} → {l : ℕ → ℕ} →
@@ -157,8 +154,6 @@ test3 {st} =
     {Before}
     {After}
     ((λ {st} → (helper-n {st} 1)) ∷ (λ {st} → (helper-n {st} 0)) ∷ [])
-    {TRUE , SKIP}
-
 
 -- test-n : (n : ℕ) → Before ▷[ bubbleSort n ] After
 -- test-n n {st} =
@@ -188,8 +183,6 @@ test2' {st} =
     {Before}
     {After'}
     ((λ {st} → helper' {st}) ∷ [])
-    {TRUE , SKIP}
-
 --
 
 Ordered' : ℕ → Predicate
