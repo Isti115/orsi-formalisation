@@ -37,56 +37,63 @@ module Constructions (varCount : ℕ) (varTypes : Fin varCount → Base.Types) w
   -- Union : (a b : ParallelProgram) → (proj₁ a ≡ proj₁ b) → ParallelProgram
   -- Union (a₀ , as) (b₀ , bs) Refl = (a₀ , as ++ bs)
 
-  Union : (a b : ParallelProgram) → (proj₁ a ≡ proj₁ b) → ParallelProgram
-  Union (a₀ , as) (b₀ , bs) Refl = (a₀ , as ++ bs)
+  Union : (a b : ParallelProgram) → {s₀eq : proj₁ a ≡ proj₁ b} → ParallelProgram
+  Union (a₀ , as) (b₀ , bs) = (a₀ , as ++ bs)
 
-  ▷-Union-to : (s₀eq : proj₁ S1 ≡ proj₁ S2) → (P ▷[ S1 ] Q × P ▷[ S2 ] Q) → (P ▷[ Union S1 S2 s₀eq ] Q)
-  -- ▷-Union-to {_ , []} {_ , []} refl (s1 , s2) (p , ⌝q) = []
-  ▷-Union-to {_ , []} {_ , S2s} refl (▷s1 , ▷s2) (p , ⌝q) = ▷s2 (p , ⌝q)
-  ▷-Union-to {_ , s1 ∷ S1s} {_ , S2s} refl (▷s1 , ▷s2) (p , ⌝q) with ▷s1 (p , ⌝q)
-  -- ▷-Union-to {_ , s1 ∷ S1s} {_ , []} refl (▷s1 , ▷s2) (p , ⌝q) | px ∷ x = px ∷ ▷-Union-to refl (lessUnless {s₀ = (TRUE , SKIP)} ▷s1 , ▷s2) (p , ⌝q)
-  ▷-Union-to {s₀ , s1 ∷ S1s} {_ , S2s} refl (▷s1 , ▷s2) (p , ⌝q) | px ∷ x =
-    px ∷ ▷-Union-to {s₀ , _} refl (lessUnless {s₀ = s₀} ▷s1 , ▷s2) (p , ⌝q)
-  -- ▷-Union-to {_ , s1 ∷ S1s} {_ , s2 ∷ S2s} refl (▷s1 , ▷s2) (p , ⌝q) = {!!}
+  ▷-Union-to : {s₀eq : proj₁ S1 ≡ proj₁ S2} → (P ▷[ S1 ] Q × P ▷[ S2 ] Q) → (P ▷[ Union S1 S2 {s₀eq} ] Q)
+  ▷-Union-to {_ , []} (▷s1 , ▷s2) = ▷s2
+  ▷-Union-to {_ , _ ∷ _} (▷s1 , ▷s2) (p , ⌝q) with ▷s1 (p , ⌝q)
+  ▷-Union-to {s₀ , _ ∷ _} {s₀eq = s₀eq} (▷s1 , ▷s2) (p , ⌝q) | px ∷ x =
+    px ∷ ▷-Union-to {s₀ , _} {s₀eq = s₀eq} (lessUnless {s₀ = s₀} ▷s1 , ▷s2) (p , ⌝q)
 
-  ▷-Union-from-1 : (s₀eq : proj₁ S1 ≡ proj₁ S2) → (P ▷[ Union S1 S2 s₀eq ] Q) → (P ▷[ S1 ] Q)
-  ▷-Union-from-1 {_ , []} refl ▷u (p , ⌝q) = []
-  ▷-Union-from-1 {_ , s1 ∷ S1s} refl ▷u (p , ⌝q) with ▷u (p , ⌝q)
-  ▷-Union-from-1 {s₀ , s1 ∷ S1s} refl ▷u (p , ⌝q) | px ∷ x =
-    px ∷ ▷-Union-from-1 {s₀ , _} refl (lessUnless {s₀ = s₀} ▷u) (p , ⌝q)
+  ▷-Union-from-1 : {s₀eq : proj₁ S1 ≡ proj₁ S2} → (P ▷[ Union S1 S2 {s₀eq} ] Q) → (P ▷[ S1 ] Q)
+  ▷-Union-from-1 {_ , []} ▷u = const []
+  ▷-Union-from-1 {_ , _ ∷ _} ▷u (p , ⌝q) with ▷u (p , ⌝q)
+  ▷-Union-from-1 {s₀ , _ ∷ _} {s₀eq = s₀eq} ▷u (p , ⌝q) | px ∷ x =
+    px ∷ ▷-Union-from-1 {s₀ , _} {s₀eq = s₀eq} (lessUnless {s₀ = s₀} ▷u) (p , ⌝q)
 
-  ▷-Union-from-2 : (s₀eq : proj₁ S1 ≡ proj₁ S2) → (P ▷[ Union S1 S2 s₀eq ] Q) → (P ▷[ S2 ] Q)
-  ▷-Union-from-2 {_ , []} {_ , S2} refl ▷u (p , ⌝q) = ▷u (p , ⌝q)
-  ▷-Union-from-2 {_ , s1 ∷ S1s} {_ , S2} refl ▷u (p , ⌝q) with ▷u (p , ⌝q)
-  ▷-Union-from-2 {s₀ , s1 ∷ S1s} {_ , S2} refl ▷u (p , ⌝q) | px ∷ x =
-    ▷-Union-from-2 {s₀ , _} refl (lessUnless {s₀ = s₀} ▷u) (p , ⌝q)
+  ▷-Union-from-2 : {s₀eq : proj₁ S1 ≡ proj₁ S2} → (P ▷[ Union S1 S2 {s₀eq} ] Q) → (P ▷[ S2 ] Q)
+  ▷-Union-from-2 {_ , []} ▷u = ▷u
+  ▷-Union-from-2 {_ , _ ∷ _} ▷u (p , ⌝q) with ▷u (p , ⌝q)
+  ▷-Union-from-2 {s₀ , _ ∷ _} {s₀eq = s₀eq} ▷u (p , ⌝q) | px ∷ x =
+    ▷-Union-from-2 {s₀ , _} {s₀eq = s₀eq} (lessUnless {s₀ = s₀} ▷u) (p , ⌝q)
 
-  -- ▷-Union-from-2 {_ , x ∷ S1} {_ , x₁ ∷ S2} refl ▷u (p , ⌝q) = {!!}
-  -- ▷-Union-from-2 {_ , s1 ∷ S1s} refl ▷u (p , ⌝q) with ▷u (p , ⌝q)
-  -- ▷-Union-from-2 {s₀ , s1 ∷ S1s} refl ▷u (p , ⌝q) | px ∷ x =
-  --   px ∷ ▷-Union-from-1 {s₀ , _} refl (lessUnless {s₀ = s₀} ▷u) (p , ⌝q)
+  func-times-distr : {X : Set} → {A B C : X → Set} → ({x : X} → A x → (B x × C x)) → (({x : X} → A x → B x) × ({x : X} → A x → C x))
+  func-times-distr f = ((λ a → proj₁ (f a)) , (λ a → proj₂ (f a)))
 
-  -- ▷-Union : (s₀eq : proj₁ S1 ≡ proj₁ S2) → (P ▷[ Union S1 S2 s₀eq ] Q) → (P ▷[ S1 ] Q × P ▷[ S2 ] Q)
-  -- ▷-Union refl u =
-  --   (λ { (p , ⌝q) → {!!} })
-  --   ,
-  --   (λ { (p , ⌝q) → {!!} })
+  func-times-distr-imp : {X : Set} → {A B C : X → Set} → ({x : X} → A x → (B x × C x)) → (({x : X} → A x → B x) × ({x : X} → A x → C x))
+  func-times-distr-imp f = ((λ a → proj₁ (f a)) , (λ a → proj₂ (f a)))
 
-  ▷-Union : (s₀eq : proj₁ S1 ≡ proj₁ S2) → (P ▷[ Union S1 S2 s₀eq ] Q) ↔ (P ▷[ S1 ] Q × P ▷[ S2 ] Q)
-  ▷-Union {s₀ , _} refl =
+  ▷-Union-from : (s₀eq : proj₁ S1 ≡ proj₁ S2) → (P ▷[ Union S1 S2 {s₀eq} ] Q) → (P ▷[ S1 ] Q × P ▷[ S2 ] Q)
+  ▷-Union-from {_ , []} {_ , ss2} refl ▷u = ((const []) , ▷u)
+  ▷-Union-from {_ , x ∷ ss1} {_ , ss2} refl ▷u =
+    func-times-distr λ { (p , ⌝q) → {! with ...!} } -- (λ x₁ → {!!}) , (λ x₁ → {!!}) -- func-times {!!} {!!}
+
+  -- func-times : {A B C : Set} → ((A → B) × (A → C)) → A → (B × C)
+  -- func-times (f , g) a = (f a , g a)
+
+  -- ▷-Union-from : (s₀eq : proj₁ S1 ≡ proj₁ S2) → (P ▷[ Union S1 S2 {s₀eq} ] Q) → (P ▷[ S1 ] Q × P ▷[ S2 ] Q)
+  -- ▷-Union-from refl = λ x → {!!} , {!!}
+
+  ▷-Union : {s₀eq : proj₁ S1 ≡ proj₁ S2} → (P ▷[ Union S1 S2 {s₀eq} ] Q) ↔ (P ▷[ S1 ] Q × P ▷[ S2 ] Q)
+  ▷-Union {s₀ , _} {s₀eq = refl} =
     (
       λ x →
         (
-          (▷-Union-from-1 {s₀ , _} refl x)
+          (▷-Union-from-1 {s₀ , _} {s₀eq = refl} x)
           ,
-          (▷-Union-from-2 {s₀ , _} refl x)
+          (▷-Union-from-2 {s₀ , _} {s₀eq = refl} x)
         )
     )
     ,
-    ▷-Union-to  {s₀ , _} refl
+    ▷-Union-to {s₀ , _} {s₀eq = refl}
 
   -- ▷-Union : P ▷[ S1 ] Q ↔ P ▷[ S2 ] Q
   -- ▷-Union =
   --   (λ x x₁ → {!!})
   --   ,
   --   (λ x x₁ → {!!})
+
+  --
+
+  -- ↦-Union : 
