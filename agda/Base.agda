@@ -4,7 +4,7 @@ module Base where
 
 open import Relation.Nullary
 open import Relation.Nullary.Decidable
-open import Relation.Binary.PropositionalEquality as Eq
+open import Relation.Binary.PropositionalEquality as Eq hiding ([_])
 open import Data.Bool
 open import Data.Nat
 open import Data.Fin hiding (_+_)
@@ -24,35 +24,75 @@ data Types : Set
 evaluateType : Types → Set
 defaultValue : (t : Types) → (evaluateType t)
 
--- data QueueWithHistory (A : Types) : Set where
---   [] : QueueWithHistory A
---   push : QueueWithHistory A → QueueWithHistory A
---   pop : QueueWithHistory A → QueueWithHistory A
+
+-- Queue with history using two lists
+
+-- QueueWithHistory : Types → Set
+-- QueueWithHistory A = List (evaluateType A) × List (evaluateType A)
+
+-- hiext : {A : Types} → (evaluateType A) → QueueWithHistory A → QueueWithHistory A
+-- hiext a (l , h) = (l ++ [ a ] , h ++ [ a ])
+
+-- lorem : {A : Types} → QueueWithHistory A → QueueWithHistory A
+-- lorem ([] , h) = ([] , h)
+-- lorem (l ∷ ls , h) = (ls , h)
+
+-- lov : {A : Types} → QueueWithHistory A → (evaluateType A)
+-- lov {A} ([] , h) = defaultValue A
+-- lov (l ∷ ls , h) = l
+
+-- history : {A : Types} → QueueWithHistory A → QueueWithHistory A
+-- history (l , h) = (h , h)
+
+
+-- Queue using a binary tree
+
+data Queue (A : Types) : Set where
+  Leaf : Queue A
+  Node : (evaluateType A) → Queue A → Queue A → Queue A
+
+enqueue : {A : Types} → (evaluateType A) → Queue A → Queue A
+enqueue a Leaf = Node a Leaf Leaf
+enqueue a (Node x l r) = Node x (enqueue a l) r
+
+peek : {A : Types} → Queue A → (evaluateType A)
+peek {A} Leaf = defaultValue A
+peek (Node x l Leaf) = x
+peek (Node x l r@(Node _ _ _)) = peek r
+
+dequeue : {A : Types} → Queue A → Queue A
+dequeue {A} Leaf = Leaf
+dequeue (Node x l Leaf) = l
+dequeue (Node x l r@(Node _ _ _)) = Node x l (dequeue r)
+
+historyToQueue : {A : Types} → List (evaluateType A) → Queue A
+historyToQueue [] = Leaf
+historyToQueue (x ∷ l) = enqueue x (historyToQueue l)
+
+
+-- Queue with history
 
 QueueWithHistory : Types → Set
-QueueWithHistory A = List (evaluateType A) × List (evaluateType A)
-
--- hiext : {A : Set} → A → QueueWithHistory A → QueueWithHistory A
--- hiext a (l , h) = (a ∷ l , a ∷ h)
-
--- lorem : {A : Set} → QueueWithHistory A → QueueWithHistory A
--- lorem (l , h) with reverse l
--- lorem (l , h) | [] = ([] , h)
--- lorem (l , h) | _ ∷ ls = (reverse ls , h)
+QueueWithHistory A = Queue A × List (evaluateType A)
 
 hiext : {A : Types} → (evaluateType A) → QueueWithHistory A → QueueWithHistory A
-hiext a (l , h) = (reverse (a ∷ reverse l) , reverse (a ∷ h))
+hiext a (q , h) = enqueue a q , a ∷ h
 
 lorem : {A : Types} → QueueWithHistory A → QueueWithHistory A
-lorem ([] , h) = ([] , h)
-lorem (l ∷ ls , h) = (ls , h)
+lorem (q , h) = (dequeue q , h)
 
 lov : {A : Types} → QueueWithHistory A → (evaluateType A)
-lov {A} ([] , h) = defaultValue A
-lov (l ∷ ls , h) = l
+lov (q , h) = peek q
 
 history : {A : Types} → QueueWithHistory A → QueueWithHistory A
-history (l , h) = (h , h)
+history (q , h) = (historyToQueue h , h)
+
+len : {A : Types} → Queue A → ℕ
+len Leaf = 0
+len (Node x l r) = suc ((len l) + (len r))
+
+
+-- Types
 
 data Types where
   Nat : Types
@@ -65,7 +105,8 @@ evaluateType (DataChannel A) = QueueWithHistory A
 
 defaultValue Nat = zero
 defaultValue (Array A) = const (defaultValue A)
-defaultValue (DataChannel A) = ([] , [])
+defaultValue (DataChannel A) = (Leaf , [])
+
 
 module Program (varCount : ℕ) (varTypes : Fin varCount → Types) where
 
