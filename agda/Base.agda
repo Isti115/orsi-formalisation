@@ -13,7 +13,7 @@ open import Data.Empty
 open import Data.Product
 open import Data.Sum
 open import Data.List
--- open import Data.List.All
+open import Data.List.All hiding (_∷_)
 -- open import Data.List.Any
 open import Function
 -- open import Data.String
@@ -22,8 +22,7 @@ open import Function
 
 data Types : Set
 evaluateType : Types → Set
-defaultValue : (t : Types) → (evaluateType t)
-
+defaultValue : (A : Types) → (evaluateType A)
 
 -- Queue with history using two lists
 
@@ -69,6 +68,9 @@ historyToQueue : {A : Types} → List (evaluateType A) → Queue A
 historyToQueue [] = Leaf
 historyToQueue (x ∷ l) = enqueue x (historyToQueue l)
 
+queueToList : {A : Types} → Queue A → List (evaluateType A)
+queueToList Leaf = []
+queueToList (Node x l r) = queueToList l ++ (x ∷ queueToList r)
 
 -- Queue with history
 
@@ -100,13 +102,86 @@ data Types where
   DataChannel : Types → Types
 
 evaluateType Nat = ℕ
-evaluateType (Array A) = ℕ → (evaluateType A)
+evaluateType (Array A) = ℕ × (ℕ → (evaluateType A))
 evaluateType (DataChannel A) = QueueWithHistory A
 
 defaultValue Nat = zero
-defaultValue (Array A) = const (defaultValue A)
+defaultValue (Array A) = (0 , const (defaultValue A))
 defaultValue (DataChannel A) = (Leaf , [])
 
+--
+
+infix 4 _≋_
+_≋_ : {A : Types} → (a b : evaluateType A) → Set
+
+natFunctionEqualUpTo : {A : Types} → (l : ℕ) → (f g : ℕ → evaluateType A) → Set
+natFunctionEqualUpTo l f g = All (λ i → f i ≋ g i) (downFrom l)
+
+ownListEq : {A : Types} → (a b : List (evaluateType A)) → Set
+ownListEq [] [] = ⊤
+ownListEq [] (b ∷ bs) = ⊥
+ownListEq (a ∷ as) [] = ⊥
+ownListEq (a ∷ as) (b ∷ bs) = a ≋ b × (ownListEq as bs)
+
+ownEq : {A : Types} → (a b : evaluateType A) → Set
+ownEq {Nat} a b = a ≡ b
+ownEq {Array A} (la , as) (lb , bs) = la ≡ lb × natFunctionEqualUpTo la as bs -- (n : ℕ) → (a n ≋ b n)
+ownEq {DataChannel A} a b = ownListEq (queueToList (proj₁ a)) (queueToList (proj₁ b))
+
+a ≋ b = ownEq a b
+
+--
+
+infix 4 _=?_
+_=?_ : {A : Types} → (a b : evaluateType A) → Dec (a ≋ b)
+
+listFunctionDec : {A : Types} → (l : ℕ) → (a b : ℕ → evaluateType A) → Dec (natFunctionEqualUpTo l a b)
+listFunctionDec l a b = Data.List.All.all (λ i → a i =? b i) (downFrom l)
+
+arrayDecEq : {A : Types} → (a b : (evaluateType (Array A))) → Dec (ownEq {Array A} a b)
+arrayDecEq (la , as) (lb , bs) with la Data.Nat.≟ lb
+arrayDecEq (la , as) (lb , bs) | yes p with listFunctionDec la as bs
+arrayDecEq (la , as) (lb , bs) | yes p | yes p₁ = yes (p , p₁)
+arrayDecEq (la , as) (lb , bs) | yes p | no ¬p = no (λ z → ¬p (proj₂ z))
+arrayDecEq (la , as) (lb , bs) | no ¬p = no (λ z → ¬p (proj₁ z))
+
+-- listDecEq : {A : Types} → (a b : List (evaluateType A)) → Dec (a ≋ b)
+-- listDecEq [] [] = yes ?
+-- listDecEq [] (b ∷ bs) = no (λ ())
+-- listDecEq (a ∷ as) [] = no (λ ())
+-- listDecEq (a ∷ as) (b ∷ bs) with a =? b | listDecEq as bs
+-- listDecEq (a ∷ as) (b ∷ bs) | yes p | y = {!!}
+-- listDecEq (a ∷ as) (b ∷ bs) | no ¬p | y = {!!}
+
+ownListDecEq : {A : Types} → (a b : List (evaluateType A)) → Dec (ownListEq a b)
+ownListDecEq [] [] = yes tt
+ownListDecEq [] (b ∷ bs) = no id
+ownListDecEq (a ∷ as) [] = no id
+ownListDecEq (a ∷ as) (b ∷ bs) with a =? b | ownListDecEq as bs
+ownListDecEq (a ∷ as) (b ∷ bs) | yes p | yes p₁ = yes (p , p₁)
+ownListDecEq (a ∷ as) (b ∷ bs) | yes p | no ¬p = no (λ z → ¬p (proj₂ z))
+ownListDecEq (a ∷ as) (b ∷ bs) | no ¬p | y = no (λ z → ¬p (proj₁ z))
+
+Queue≟ : {A : Types} → (q r : Queue A) → Dec (ownListEq (queueToList q) (queueToList r))
+Queue≟ q r with queueToList q | queueToList r
+Queue≟ q r | qq | rr = ownListDecEq qq rr
+-- Queue≟ q r | [] | rr ∷ rs = no id
+-- Queue≟ q r | qq ∷ qs | [] = no id
+-- Queue≟ q r | qq ∷ qs | rr ∷ rs = {!!}
+
+dataChannelDecEq :
+  {A : Types} →
+  (a b : (evaluateType (DataChannel A))) → Dec (ownEq {DataChannel A} a b)
+dataChannelDecEq (aq , ah) (bq , bh) = Queue≟ aq bq
+
+decEq : {A : Types} → (a b : evaluateType A) → Dec (a ≋ b)
+decEq {Nat} = Data.Nat._≟_
+decEq {Array A} = arrayDecEq
+decEq {DataChannel A} = dataChannelDecEq
+
+a =? b = decEq a b
+
+--
 
 module Program (varCount : ℕ) (varTypes : Fin varCount → Types) where
 
@@ -157,6 +232,7 @@ module Program (varCount : ℕ) (varTypes : Fin varCount → Types) where
   listEquality :
     {A : Set} → {a b : A} → {as bs : List A} →
     (a ≡ b) → (as ≡ bs) → (a ∷ as ≡ b ∷ bs)
+    -- (a ≡ b) → (as ≡ bs) → (_≡_ {A = List A} (a ∷ as) (b ∷ bs))
   listEquality refl refl = refl
 
   listToFunction∘functionToList-test :
@@ -170,24 +246,25 @@ module Program (varCount : ℕ) (varTypes : Fin varCount → Types) where
   -- getWithDefaultZero zero (n ∷ ln) = n
   -- getWithDefaultZero (suc i) (n ∷ ln) = getWithDefaultZero i ln
 
-  setListItem : {A : Types} → ℕ → evaluateType A → (ℕ → (evaluateType A)) → (ℕ → (evaluateType A))
+  setListItem : {A : Types} → ℕ → evaluateType A → evaluateType (Array A) → evaluateType (Array A)
   -- setListItem i n f j = if ⌊ j Data.Nat.≟ i ⌋ then n else (f j)
-  setListItem i v f j with j Data.Nat.≟ i
-  setListItem i v f j | yes p = v
-  setListItem i v f j | no ¬p = f j
-  -- then n else (f j)
+  setListItem {A} i v (l , f) = (l , g) where
+    g : ℕ → evaluateType A
+    g j with j Data.Nat.≟ i
+    g j | yes p = v
+    g j | no ¬p = f j
 
   -- setListItem : ℕ → ℕ → List ℕ → List ℕ
   -- setListItem i m [] = []
   -- setListItem zero m (n ∷ ln) = m ∷ ln
   -- setListItem (suc i) m (n ∷ ln) = n ∷ setListItem i m ln
 
-  ⟦_⟧e : {t : Types} → Expression t → State → evaluateType t
+  ⟦_⟧e : {A : Types} → Expression A → State → evaluateType A
   ⟦ Const value ⟧e state = value
   -- ⟦ ConstArray ln ⟧e state = ln
 
   ⟦ GetArray ei eln ⟧e state with ⟦ ei ⟧e state | ⟦ eln ⟧e state
-  ... | i | ln = ln i
+  ... | i | (l , ls) = ls i
   -- ⟦ GetArray i eln ⟧e state | j | [] = 0
   -- ⟦ GetArray i eln ⟧e state | zero | n ∷ ln = n
   -- ⟦ GetArray i eln ⟧e state | suc j | n ∷ ln = ⟦ GetArray (ConstNat j) (ConstArray ln) ⟧e state
@@ -253,7 +330,7 @@ module Program (varCount : ℕ) (varTypes : Fin varCount → Types) where
     AND : Predicate → Predicate → Predicate
     OR : Predicate → Predicate → Predicate
 
-    EQ : Expression Nat → Expression Nat → Predicate
+    EQ : {A : Types} → Expression A → Expression A → Predicate
 
     LTE : Expression Nat → Expression Nat → Predicate
     GTE : Expression Nat → Expression Nat → Predicate
@@ -281,7 +358,7 @@ module Program (varCount : ℕ) (varTypes : Fin varCount → Types) where
   ⟦ AND p p₁ ⟧a state = ((⟦ p ⟧a state) × (⟦ p₁ ⟧a state))
   ⟦ OR p p₁ ⟧a state = ((⟦ p ⟧a state) ⊎ (⟦ p₁ ⟧a state))
 
-  ⟦ EQ e e₁ ⟧a state = ((⟦ e ⟧e state) ≡ (⟦ e₁ ⟧e state))
+  ⟦ EQ e e₁ ⟧a state = ((⟦ e ⟧e state) ≋ (⟦ e₁ ⟧e state))
 
   ⟦ LTE e e₁ ⟧a state = ((⟦ e ⟧e state) Data.Nat.≤ (⟦ e₁ ⟧e state))
   ⟦ GTE e e₁ ⟧a state = ((⟦ e ⟧e state) Data.Nat.≥ (⟦ e₁ ⟧e state))
@@ -312,7 +389,7 @@ module Program (varCount : ℕ) (varTypes : Fin varCount → Types) where
   ⟦ AND p p₁ ⟧d state = decAnd (⟦ p ⟧d state) (⟦ p₁ ⟧d state)
   ⟦ OR p p₁ ⟧d state = decOr (⟦ p ⟧d state) (⟦ p₁ ⟧d state)
 
-  ⟦ EQ e e₁ ⟧d state = ((⟦ e ⟧e state) Data.Nat.≟ (⟦ e₁ ⟧e state))
+  ⟦ EQ e e₁ ⟧d state = ((⟦ e ⟧e state) =? (⟦ e₁ ⟧e state))
 
   ⟦ LTE e e₁ ⟧d state = ((⟦ e ⟧e state) Data.Nat.≤? (⟦ e₁ ⟧e state))
   ⟦ GTE e e₁ ⟧d state = ((⟦ e ⟧e state) Data.Nat.≥? (⟦ e₁ ⟧e state))
