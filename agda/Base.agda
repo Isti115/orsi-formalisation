@@ -7,6 +7,7 @@ open import Relation.Nullary.Decidable
 open import Relation.Binary.PropositionalEquality as Eq hiding ([_])
 open import Data.Bool
 open import Data.Nat
+open import Data.Nat.Properties
 open import Data.Fin hiding (_+_)
 open import Data.Unit
 open import Data.Empty
@@ -102,7 +103,7 @@ data Types where
   DataChannel : Types → Types
 
 evaluateType Nat = ℕ
-evaluateType (Array A) = ℕ × (ℕ → (evaluateType A))
+evaluateType (Array A) = Σ ℕ (λ l → (Fin l → (evaluateType A)))
 evaluateType (DataChannel A) = QueueWithHistory A
 
 defaultValue Nat = zero
@@ -114,8 +115,18 @@ defaultValue (DataChannel A) = (Leaf , [])
 infix 4 _≋_
 _≋_ : {A : Types} → (a b : evaluateType A) → Set
 
-natFunctionEqualUpTo : {A : Types} → (l : ℕ) → (f g : ℕ → evaluateType A) → Set
-natFunctionEqualUpTo l f g = All (λ i → f i ≋ g i) (downFrom l)
+finDownFrom : (n : ℕ) → List (Fin n)
+finDownFrom 0F = []
+finDownFrom (suc n) = fromℕ n ∷ Data.List.map inject₁ (finDownFrom n)
+
+finListEq : {A : Types} → (l : ℕ) → (f g : Fin l → evaluateType A) → Set
+finListEq l f g = All (λ i → f i ≋ g i) (finDownFrom l)
+
+-- finListEq : {A : Types} → (l : ℕ) → (f g : Fin l → evaluateType A) → Set
+-- finListEq l f g = (i : Fin l) → (f i ≋ g i) -- All (λ i → f i ≋ g i) (downFrom l)
+
+-- natFunctionEqualUpTo : {A : Types} → (l : ℕ) → (f g : ℕ → evaluateType A) → Set
+-- natFunctionEqualUpTo l f g = All (λ i → f i ≋ g i) (downFrom l)
 
 ownListEq : {A : Types} → (a b : List (evaluateType A)) → Set
 ownListEq [] [] = ⊤
@@ -125,7 +136,8 @@ ownListEq (a ∷ as) (b ∷ bs) = a ≋ b × (ownListEq as bs)
 
 ownEq : {A : Types} → (a b : evaluateType A) → Set
 ownEq {Nat} a b = a ≡ b
-ownEq {Array A} (la , as) (lb , bs) = la ≡ lb × natFunctionEqualUpTo la as bs -- (n : ℕ) → (a n ≋ b n)
+-- ownEq {Array A} (la , as) (lb , bs) = Σ (la ≡ lb) λ { refl → (n : Fin la) → (as n ≡ bs n) } -- natFunctionEqualUpTo la as bs -- (n : ℕ) → (a n ≋ b n)
+ownEq {Array A} (la , as) (lb , bs) = Σ (la ≡ lb) λ { refl → finListEq la as bs }
 ownEq {DataChannel A} a b = ownListEq (queueToList (proj₁ a)) (queueToList (proj₁ b))
 
 a ≋ b = ownEq a b
@@ -135,15 +147,40 @@ a ≋ b = ownEq a b
 infix 4 _=?_
 _=?_ : {A : Types} → (a b : evaluateType A) → Dec (a ≋ b)
 
-listFunctionDec : {A : Types} → (l : ℕ) → (a b : ℕ → evaluateType A) → Dec (natFunctionEqualUpTo l a b)
-listFunctionDec l a b = Data.List.All.all (λ i → a i =? b i) (downFrom l)
+tmp : {n : ℕ} → suc n ≡ n + 1
+tmp {n} = +-comm 1 n
+
+finListDec-helper : {A : Set} → (l : ℕ) → (Fin (suc l) → A) → (Fin l → A)
+finListDec-helper l f rewrite (tmp {l}) = f ∘ (inject+ 1)
+
+-- finListDec : {A : Types} → (l : ℕ) → (a b : Fin l → evaluateType A) → Dec (finListEq l a b)
+-- finListDec 0F a b = yes (λ ())
+-- finListDec (suc l) a b with (finListDec l (finListDec-helper l a) (finListDec-helper l b))
+-- finListDec (suc l) a b | yes p = {!!}
+-- finListDec (suc l) a b | no ¬p = {!!}
+
+finListDec : {A : Types} → (l : ℕ) → (a b : Fin l → evaluateType A) → Dec (finListEq l a b)
+finListDec l a b = Data.List.All.all (λ i → a i =? b i) (finDownFrom l)
+
+-- finListDec : {A : Types} → (l : ℕ) → (a b : Fin l → evaluateType A) → Dec (finListEq l a b)
+-- finListDec 0F a b = yes (λ ())
+-- finListDec (suc l) a b with (a (fromℕ l) =? b (fromℕ l)) | (finListDec l (finListDec-helper l a) (finListDec-helper l b))
+-- finListDec (suc l) a b | yes p | yes p₁ = {!!}
+-- finListDec (suc l) a b | yes p | no ¬p = {!!}
+-- finListDec (suc l) a b | no ¬p | y = no (λ z → ¬p (z (fromℕ l)))
+
+-- listFunctionDec : {A : Types} → (l : ℕ) → (a b : ℕ → evaluateType A) → Dec (natFunctionEqualUpTo l a b)
+-- listFunctionDec l a b = Data.List.All.all (λ i → a i =? b i) (downFrom l)
 
 arrayDecEq : {A : Types} → (a b : (evaluateType (Array A))) → Dec (ownEq {Array A} a b)
 arrayDecEq (la , as) (lb , bs) with la Data.Nat.≟ lb
-arrayDecEq (la , as) (lb , bs) | yes p with listFunctionDec la as bs
-arrayDecEq (la , as) (lb , bs) | yes p | yes p₁ = yes (p , p₁)
-arrayDecEq (la , as) (lb , bs) | yes p | no ¬p = no (λ z → ¬p (proj₂ z))
+arrayDecEq (la , as) (lb , bs) | yes refl with (finListDec la as bs)
+arrayDecEq (la , as) (la , bs) | yes refl | yes p = yes (refl , p)
+arrayDecEq (la , as) (la , bs) | yes refl | no ¬p = no λ { (refl , ⌝leq) → ¬p ⌝leq }
 arrayDecEq (la , as) (lb , bs) | no ¬p = no (λ z → ¬p (proj₁ z))
+-- arrayDecEq (la , as) (lb , bs) | yes p with listFunctionDec la as bs
+-- arrayDecEq (la , as) (lb , bs) | yes p | yes p₁ = yes (p , p₁)
+-- arrayDecEq (la , as) (lb , bs) | yes p | no ¬p = no (λ z → ¬p (proj₂ z))
 
 -- listDecEq : {A : Types} → (a b : List (evaluateType A)) → Dec (a ≋ b)
 -- listDecEq [] [] = yes ?
@@ -246,13 +283,14 @@ module Program (varCount : ℕ) (varTypes : Fin varCount → Types) where
   -- getWithDefaultZero zero (n ∷ ln) = n
   -- getWithDefaultZero (suc i) (n ∷ ln) = getWithDefaultZero i ln
 
-  setListItem : {A : Types} → ℕ → evaluateType A → evaluateType (Array A) → evaluateType (Array A)
+  setListItem : {A : Types} → {le : ℕ} → Fin le → evaluateType A → (li : evaluateType (Array A)) → (proj₁ li ≡ le) → evaluateType (Array A)
+  setListItem i v (l , f) refl = (l , λ j → if ⌊ i Data.Fin.≟ j ⌋ then v else (f j))
   -- setListItem i n f j = if ⌊ j Data.Nat.≟ i ⌋ then n else (f j)
-  setListItem {A} i v (l , f) = (l , g) where
-    g : ℕ → evaluateType A
-    g j with j Data.Nat.≟ i
-    g j | yes p = v
-    g j | no ¬p = f j
+  -- setListItem {A} i v (l , f) = (l , g) where
+    -- g : ℕ → evaluateType A
+    -- g j with j Data.Nat.≟ i
+    -- g j | yes p = v
+    -- g j | no ¬p = f j
 
   -- setListItem : ℕ → ℕ → List ℕ → List ℕ
   -- setListItem i m [] = []
@@ -263,14 +301,18 @@ module Program (varCount : ℕ) (varTypes : Fin varCount → Types) where
   ⟦ Const value ⟧e state = value
   -- ⟦ ConstArray ln ⟧e state = ln
 
-  ⟦ GetArray ei eln ⟧e state with ⟦ ei ⟧e state | ⟦ eln ⟧e state
-  ... | i | (l , ls) = ls i
+  ⟦ GetArray ei el ⟧e state with ⟦ ei ⟧e state | ⟦ el ⟧e state
+  ⟦ GetArray ei el ⟧e state | i | l , ls with i Data.Nat.<? l
+  ⟦ GetArray ei el ⟧e state | i | l , ls | yes p = ls (fromℕ≤ p)
+  ⟦ GetArray {A} ei el ⟧e state | i | l , ls | no ¬p = defaultValue A
   -- ⟦ GetArray i eln ⟧e state | j | [] = 0
   -- ⟦ GetArray i eln ⟧e state | zero | n ∷ ln = n
   -- ⟦ GetArray i eln ⟧e state | suc j | n ∷ ln = ⟦ GetArray (ConstNat j) (ConstArray ln) ⟧e state
 
-  ⟦ SetArray ei em eln ⟧e state with ⟦ ei ⟧e state | ⟦ em ⟧e state | ⟦ eln ⟧e state
-  ... | i | m | ln = setListItem i m ln
+  ⟦ SetArray ei ev el ⟧e state with ⟦ ei ⟧e state | ⟦ ev ⟧e state | ⟦ el ⟧e state
+  ⟦ SetArray ei ev el ⟧e state | i | v | (l , f) with i Data.Nat.<? l
+  ⟦ SetArray ei ev el ⟧e state | i | v | l , f | yes p = setListItem (fromℕ≤ p) v (l , f) refl
+  ⟦ SetArray ei ev el ⟧e state | i | v | l , f | no ¬p = (l , f) -- setListItem i m ln
   -- ⟦ SetArray zero n (x ∷ ln) ⟧e state = n ∷ ln
   -- ⟦ SetArray (suc i) n (x ∷ ln) ⟧e state = x ∷ ⟦ SetArray i n ln ⟧e state
 
