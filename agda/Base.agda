@@ -14,7 +14,7 @@ open import Data.Empty
 open import Data.Product
 open import Data.Sum
 open import Data.List
-open import Data.List.All hiding (_∷_)
+open import Data.List.Relation.Unary.All hiding (_∷_)
 -- open import Data.List.Any
 open import Function
 -- open import Data.String
@@ -94,6 +94,8 @@ len : {A : Types} → Queue A → ℕ
 len Leaf = 0
 len (Node x l r) = suc ((len l) + (len r))
 
+len' : {A : Types} → QueueWithHistory A → ℕ
+len' (q , h) = len q
 
 -- Types
 
@@ -116,11 +118,11 @@ infix 4 _≋_
 _≋_ : {A : Types} → (a b : evaluateType A) → Set
 
 finDownFrom : (n : ℕ) → List (Fin n)
-finDownFrom 0F = []
+finDownFrom zero = []
 finDownFrom (suc n) = fromℕ n ∷ Data.List.map inject₁ (finDownFrom n)
 
 finListEq : {A : Types} → (l : ℕ) → (f g : Fin l → evaluateType A) → Set
-finListEq l f g = All (λ i → f i ≋ g i) (finDownFrom l)
+finListEq l f g = (i : Fin l) → (f i ≋ g i) -- All (λ i → f i ≋ g i) (finDownFrom l)
 
 -- finListEq : {A : Types} → (l : ℕ) → (f g : Fin l → evaluateType A) → Set
 -- finListEq l f g = (i : Fin l) → (f i ≋ g i) -- All (λ i → f i ≋ g i) (downFrom l)
@@ -144,14 +146,14 @@ a ≋ b = ownEq a b
 
 --
 
-infix 4 _=?_
-_=?_ : {A : Types} → (a b : evaluateType A) → Dec (a ≋ b)
+infix 4 _≋?_
+_≋?_ : {A : Types} → (a b : evaluateType A) → Dec (a ≋ b)
 
-tmp : {n : ℕ} → suc n ≡ n + 1
-tmp {n} = +-comm 1 n
+-- tmp : {n : ℕ} → suc n ≡ n + 1
+-- tmp {n} = +-comm 1 n
 
-finListDec-helper : {A : Set} → (l : ℕ) → (Fin (suc l) → A) → (Fin l → A)
-finListDec-helper l f rewrite (tmp {l}) = f ∘ (inject+ 1)
+-- finListDec-helper : {A : Set} → (l : ℕ) → (Fin (suc l) → A) → (Fin l → A)
+-- finListDec-helper l f rewrite (tmp {l}) = f ∘ (inject+ 1)
 
 -- finListDec : {A : Types} → (l : ℕ) → (a b : Fin l → evaluateType A) → Dec (finListEq l a b)
 -- finListDec 0F a b = yes (λ ())
@@ -160,17 +162,23 @@ finListDec-helper l f rewrite (tmp {l}) = f ∘ (inject+ 1)
 -- finListDec (suc l) a b | no ¬p = {!!}
 
 finListDec : {A : Types} → (l : ℕ) → (a b : Fin l → evaluateType A) → Dec (finListEq l a b)
-finListDec l a b = Data.List.All.all (λ i → a i =? b i) (finDownFrom l)
+finListDec zero a b = yes (λ ())
+finListDec (suc l) a b with (a zero ≋? b zero) | (finListDec l (a ∘ suc) (b ∘ suc))
+... | .true because ofʸ p | .true because ofʸ p₁ = yes (λ { zero → p ; (suc i) → p₁ i })
+... | .true because ofʸ p | .false because ofⁿ ¬p = no (λ z → ¬p (z ∘ suc))
+... | .false because ofⁿ ¬p | _ = no (λ z → ¬p (z zero))
+
+-- Data.List.Relation.Unary.All.all (λ i → a i ≋? b i) (finDownFrom l)
 
 -- finListDec : {A : Types} → (l : ℕ) → (a b : Fin l → evaluateType A) → Dec (finListEq l a b)
 -- finListDec 0F a b = yes (λ ())
--- finListDec (suc l) a b with (a (fromℕ l) =? b (fromℕ l)) | (finListDec l (finListDec-helper l a) (finListDec-helper l b))
+-- finListDec (suc l) a b with (a (fromℕ l) ≋? b (fromℕ l)) | (finListDec l (finListDec-helper l a) (finListDec-helper l b))
 -- finListDec (suc l) a b | yes p | yes p₁ = {!!}
 -- finListDec (suc l) a b | yes p | no ¬p = {!!}
 -- finListDec (suc l) a b | no ¬p | y = no (λ z → ¬p (z (fromℕ l)))
 
 -- listFunctionDec : {A : Types} → (l : ℕ) → (a b : ℕ → evaluateType A) → Dec (natFunctionEqualUpTo l a b)
--- listFunctionDec l a b = Data.List.All.all (λ i → a i =? b i) (downFrom l)
+-- listFunctionDec l a b = Data.List.All.all (λ i → a i ≋? b i) (downFrom l)
 
 arrayDecEq : {A : Types} → (a b : (evaluateType (Array A))) → Dec (ownEq {Array A} a b)
 arrayDecEq (la , as) (lb , bs) with la Data.Nat.≟ lb
@@ -186,7 +194,7 @@ arrayDecEq (la , as) (lb , bs) | no ¬p = no (λ z → ¬p (proj₁ z))
 -- listDecEq [] [] = yes ?
 -- listDecEq [] (b ∷ bs) = no (λ ())
 -- listDecEq (a ∷ as) [] = no (λ ())
--- listDecEq (a ∷ as) (b ∷ bs) with a =? b | listDecEq as bs
+-- listDecEq (a ∷ as) (b ∷ bs) with a ≋? b | listDecEq as bs
 -- listDecEq (a ∷ as) (b ∷ bs) | yes p | y = {!!}
 -- listDecEq (a ∷ as) (b ∷ bs) | no ¬p | y = {!!}
 
@@ -194,7 +202,7 @@ ownListDecEq : {A : Types} → (a b : List (evaluateType A)) → Dec (ownListEq 
 ownListDecEq [] [] = yes tt
 ownListDecEq [] (b ∷ bs) = no id
 ownListDecEq (a ∷ as) [] = no id
-ownListDecEq (a ∷ as) (b ∷ bs) with a =? b | ownListDecEq as bs
+ownListDecEq (a ∷ as) (b ∷ bs) with a ≋? b | ownListDecEq as bs
 ownListDecEq (a ∷ as) (b ∷ bs) | yes p | yes p₁ = yes (p , p₁)
 ownListDecEq (a ∷ as) (b ∷ bs) | yes p | no ¬p = no (λ z → ¬p (proj₂ z))
 ownListDecEq (a ∷ as) (b ∷ bs) | no ¬p | y = no (λ z → ¬p (proj₁ z))
@@ -216,7 +224,7 @@ decEq {Nat} = Data.Nat._≟_
 decEq {Array A} = arrayDecEq
 decEq {DataChannel A} = dataChannelDecEq
 
-a =? b = decEq a b
+a ≋? b = decEq a b
 
 --
 
@@ -244,6 +252,7 @@ module Program (varCount : ℕ) (varTypes : Fin varCount → Types) where
     Lov : {A : Types} → Expression (DataChannel A) → Expression A
     Lorem : {A : Types} → Expression (DataChannel A) → Expression (DataChannel A)
     History : {A : Types} → Expression (DataChannel A) → Expression (DataChannel A)
+    Len : {A : Types} → Expression (DataChannel A) → Expression (Nat)
 
   infix 3 v[_]
   v[_] : (x : Vars) → Expression (varTypes x)
@@ -303,7 +312,7 @@ module Program (varCount : ℕ) (varTypes : Fin varCount → Types) where
 
   ⟦ GetArray ei el ⟧e state with ⟦ ei ⟧e state | ⟦ el ⟧e state
   ⟦ GetArray ei el ⟧e state | i | l , ls with i Data.Nat.<? l
-  ⟦ GetArray ei el ⟧e state | i | l , ls | yes p = ls (fromℕ≤ p)
+  ⟦ GetArray ei el ⟧e state | i | l , ls | yes p = ls (fromℕ< p)
   ⟦ GetArray {A} ei el ⟧e state | i | l , ls | no ¬p = defaultValue A
   -- ⟦ GetArray i eln ⟧e state | j | [] = 0
   -- ⟦ GetArray i eln ⟧e state | zero | n ∷ ln = n
@@ -311,7 +320,7 @@ module Program (varCount : ℕ) (varTypes : Fin varCount → Types) where
 
   ⟦ SetArray ei ev el ⟧e state with ⟦ ei ⟧e state | ⟦ ev ⟧e state | ⟦ el ⟧e state
   ⟦ SetArray ei ev el ⟧e state | i | v | (l , f) with i Data.Nat.<? l
-  ⟦ SetArray ei ev el ⟧e state | i | v | l , f | yes p = setListItem (fromℕ≤ p) v (l , f) refl
+  ⟦ SetArray ei ev el ⟧e state | i | v | l , f | yes p = setListItem (fromℕ< p) v (l , f) refl
   ⟦ SetArray ei ev el ⟧e state | i | v | l , f | no ¬p = (l , f) -- setListItem i m ln
   -- ⟦ SetArray zero n (x ∷ ln) ⟧e state = n ∷ ln
   -- ⟦ SetArray (suc i) n (x ∷ ln) ⟧e state = x ∷ ⟦ SetArray i n ln ⟧e state
@@ -323,6 +332,7 @@ module Program (varCount : ℕ) (varTypes : Fin varCount → Types) where
   ⟦ Lov e ⟧e state = lov (⟦ e ⟧e state)
   ⟦ Lorem e ⟧e state = lorem (⟦ e ⟧e state)
   ⟦ History e ⟧e state = history (⟦ e ⟧e state)
+  ⟦ Len e ⟧e state = len' (⟦ e ⟧e state)
 
 
   -- Instruction and its semantics
@@ -431,7 +441,7 @@ module Program (varCount : ℕ) (varTypes : Fin varCount → Types) where
   ⟦ AND p p₁ ⟧d state = decAnd (⟦ p ⟧d state) (⟦ p₁ ⟧d state)
   ⟦ OR p p₁ ⟧d state = decOr (⟦ p ⟧d state) (⟦ p₁ ⟧d state)
 
-  ⟦ EQ e e₁ ⟧d state = ((⟦ e ⟧e state) =? (⟦ e₁ ⟧e state))
+  ⟦ EQ e e₁ ⟧d state = ((⟦ e ⟧e state) ≋? (⟦ e₁ ⟧e state))
 
   ⟦ LTE e e₁ ⟧d state = ((⟦ e ⟧e state) Data.Nat.≤? (⟦ e₁ ⟧e state))
   ⟦ GTE e e₁ ⟧d state = ((⟦ e ⟧e state) Data.Nat.≥? (⟦ e₁ ⟧e state))
