@@ -112,8 +112,11 @@ defaultValue (DataChannel A) = (Leaf , [])
 
 --
 
+ownEq : {A : Types} → (a b : evaluateType A) → Set
+
 infix 4 _≋_
-_≋_ : {A : Types} → (a b : evaluateType A) → Set
+data _≋_ {A : Types} (a b : evaluateType A) : Set
+-- _≋_ : {A : Types} → (a b : evaluateType A) → Set
 
 finDownFrom : (n : ℕ) → List (Fin n)
 finDownFrom zero = []
@@ -128,12 +131,13 @@ ownListEq [] (b ∷ bs) = ⊥
 ownListEq (a ∷ as) [] = ⊥
 ownListEq (a ∷ as) (b ∷ bs) = a ≋ b × (ownListEq as bs)
 
-ownEq : {A : Types} → (a b : evaluateType A) → Set
 ownEq {Nat} a b = a ≡ b
 ownEq {Array A} (la , as) (lb , bs) = Σ (la ≡ lb) λ { refl → finListEq la as bs }
 ownEq {DataChannel A} a b = ownListEq (queueToList (proj₁ a)) (queueToList (proj₁ b))
 
-a ≋ b = ownEq a b
+data _≋_ {A} a b where
+  ownRefl : (ownEq a b) → a ≋ b
+-- a ≋ b = ownEq a b
 
 --
 
@@ -172,12 +176,14 @@ dataChannelDecEq :
   (a b : (evaluateType (DataChannel A))) → Dec (ownEq {DataChannel A} a b)
 dataChannelDecEq (aq , ah) (bq , bh) = Queue≟ aq bq
 
-decEq : {A : Types} → (a b : evaluateType A) → Dec (a ≋ b)
+decEq : {A : Types} → (a b : evaluateType A) → Dec (ownEq a b)
 decEq {Nat} = Data.Nat._≟_
 decEq {Array A} = arrayDecEq
 decEq {DataChannel A} = dataChannelDecEq
 
-a ≋? b = decEq a b
+a ≋? b with (decEq a b)
+... | no ¬p = no λ { (ownRefl z) → ¬p z }
+... | yes p = yes (ownRefl p)
 
 --
 
