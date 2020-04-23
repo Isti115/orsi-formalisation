@@ -11,8 +11,8 @@ open import Data.Empty
 open import Data.Product
 open import Data.Sum
 open import Data.List
-open import Data.List.All
-open import Data.List.Any
+open import Data.List.Relation.Unary.All
+open import Data.List.Relation.Unary.Any
 open import Relation.Nullary
 open import Relation.Nullary.Decidable hiding (True)
 open import Relation.Binary.PropositionalEquality as Eq
@@ -81,16 +81,15 @@ module Statements (varCount : ℕ) (varTypes : Fin varCount → Types) where
   ⇐-⌝-Reverse : (P ⇐ Q) → ((⌝ Q) ⇐ (⌝ P))
   ⇐-⌝-Reverse p⇐q = λ ⌝p q → ⌝p (p⇐q q)
 
-
   -- Predicate Equivalence
-  _⇔_ : Predicate → Predicate → Statement
-  P ⇔ Q = (P ⇒ Q) × (P ⇐ Q)
+  _⇐⇒_ : Predicate → Predicate → Statement
+  P ⇐⇒ Q = (P ⇒ Q) × (P ⇐ Q)
 
-  ⇔Symmetric : (P ⇔ Q) → (Q ⇔ P)
-  ⇔Symmetric (p⇒q , p⇐q) = (p⇐q , p⇒q)
+  ⇐⇒Symmetric : (P ⇐⇒ Q) → (Q ⇐⇒ P)
+  ⇐⇒Symmetric (p⇒q , p⇐q) = (p⇐q , p⇒q)
 
-  ⇔-⌝-Compatible : (P ⇔ Q) → ((⌝ P) ⇔ (⌝ Q))
-  ⇔-⌝-Compatible (p⇒q , p⇐q) = ((⇒-⌝-Reverse p⇐q) , (⇒-⌝-Reverse p⇒q))
+  ⇐⇒-⌝-Compatible : (P ⇐⇒ Q) → ((⌝ P) ⇐⇒ (⌝ Q))
+  ⇐⇒-⌝-Compatible (p⇒q , p⇐q) = ((⇒-⌝-Reverse p⇐q) , (⇒-⌝-Reverse p⇒q))
 
 
   -- Assertion implication
@@ -203,7 +202,7 @@ module Statements (varCount : ℕ) (varTypes : Fin varCount → Types) where
   andDistributiveFromLeft (inj₁ (p , q)) = (p , inj₁ q)
   andDistributiveFromLeft (inj₂ (p , r)) = (p , inj₂ r)
 
-  andDistributiveLeft : (P △ (Q ▽ R)) ⇔ ((P △ Q) ▽ (P △ R))
+  andDistributiveLeft : (P △ (Q ▽ R)) ⇐⇒ ((P △ Q) ▽ (P △ R))
   andDistributiveLeft = (andDistributiveToLeft , andDistributiveFromLeft)
 
   --
@@ -216,7 +215,7 @@ module Statements (varCount : ℕ) (varTypes : Fin varCount → Types) where
   andDistributiveFromRight (inj₁ (p , r)) = (inj₁ p , r)
   andDistributiveFromRight (inj₂ (q , r)) = (inj₂ q , r)
 
-  andDistributiveRight : ((P ▽ Q) △ R) ⇔ ((P △ R) ▽ (Q △ R))
+  andDistributiveRight : ((P ▽ Q) △ R) ⇐⇒ ((P △ R) ▽ (Q △ R))
   andDistributiveRight = (andDistributiveToRight , andDistributiveFromRight)
 
   --
@@ -230,7 +229,7 @@ module Statements (varCount : ℕ) (varTypes : Fin varCount → Types) where
   orDistributiveFromLeft (inj₂ q , inj₁ p) = inj₁ p
   orDistributiveFromLeft (inj₂ q , inj₂ r) = inj₂ (q , r)
 
-  orDistributiveLeft : (P ▽ (Q △ R)) ⇔ ((P ▽ Q) △ (P ▽ R))
+  orDistributiveLeft : (P ▽ (Q △ R)) ⇐⇒ ((P ▽ Q) △ (P ▽ R))
   orDistributiveLeft = (orDistributiveToLeft , orDistributiveFromLeft)
 
   --
@@ -244,7 +243,7 @@ module Statements (varCount : ℕ) (varTypes : Fin varCount → Types) where
   orDistributiveFromRight (inj₁ p , inj₂ r) = inj₂ r
   orDistributiveFromRight (inj₁ p , inj₁ q) = inj₁ (p , q)
 
-  orDistributiveRight : ((P △ Q) ▽ R) ⇔ ((P ▽ R) △ (Q ▽ R))
+  orDistributiveRight : ((P △ Q) ▽ R) ⇐⇒ ((P ▽ R) △ (Q ▽ R))
   orDistributiveRight = (orDistributiveToRight , orDistributiveFromRight)
 
 
@@ -330,8 +329,8 @@ module Statements (varCount : ℕ) (varTypes : Fin varCount → Types) where
   ▷-from-⇒ : P ⇒ Q → P ▷[ S ] Q
   ▷-from-⇒ p⇒q (p , ⌝q) = ⊥-elim (⌝q (p⇒q p))
 
-  ▷-⇔-left : P ⇔ Q → P ▷[ S ] R → Q ▷[ S ] R
-  ▷-⇔-left (p⇒q , p⇐q) p▷[s]r (q , ¬r) =
+  ▷-⇐⇒-left : P ⇐⇒ Q → P ▷[ S ] R → Q ▷[ S ] R
+  ▷-⇐⇒-left (p⇒q , p⇐q) p▷[s]r (q , ¬r) =
     impliesPCWP (impliesOrLeft p⇒q) (p▷[s]r (p⇐q q , ¬r))
 
 
@@ -429,8 +428,8 @@ module Statements (varCount : ℕ) (varTypes : Fin varCount → Types) where
   ↣-NonEmpty-from-⇒ nonEmptyS p⇒q =
     ↣-⇐-left p⇒q (↣-NonEmpty-Reflexive nonEmptyS)
 
-  ↣-⇔-left : P ⇔ Q → P ↣[ S ] R → Q ↣[ S ] R
-  ↣-⇔-left (p⇒q , p⇐q) p↣[s]r = ↣-⇐-left p⇐q p↣[s]r
+  ↣-⇐⇒-left : P ⇐⇒ Q → P ↣[ S ] R → Q ↣[ S ] R
+  ↣-⇐⇒-left (p⇒q , p⇐q) p↣[s]r = ↣-⇐-left p⇐q p↣[s]r
 
   --
 
@@ -453,9 +452,9 @@ module Statements (varCount : ℕ) (varTypes : Fin varCount → Types) where
   ↦-NonEmpty-from-⇒ nonEmptyS p⇒q =
     (▷-from-⇒ p⇒q , ↣-NonEmpty-from-⇒ nonEmptyS p⇒q)
 
-  ↦-⇔-left : P ⇔ Q → P ↦[ S ] R → Q ↦[ S ] R
-  ↦-⇔-left p⇔q (p▷[s]r , p↣[s]r) =
-    (▷-⇔-left p⇔q p▷[s]r , ↣-⇔-left p⇔q p↣[s]r)
+  ↦-⇐⇒-left : P ⇐⇒ Q → P ↦[ S ] R → Q ↦[ S ] R
+  ↦-⇐⇒-left p⇐⇒q (p▷[s]r , p↣[s]r) =
+    (▷-⇐⇒-left p⇐⇒q p▷[s]r , ↣-⇐⇒-left p⇐⇒q p↣[s]r)
 
   -- FALSE
   -- impliesEnsuresLeft : P ⇒ Q → P ↦[ S ] R → Q ↦[ S ] R
@@ -506,18 +505,18 @@ module Statements (varCount : ℕ) (varTypes : Fin varCount → Types) where
       nonEmptyS = ↪-NonEmpty p↪[s]r
       q↦[s]p = ↦-NonEmpty-from-⇒ nonEmptyS p⇐q
       q↪[s]p = FromEnsures q↦[s]p
-  -- FromEnsures (↦-⇔-left p⇐q p↦[s]r)
+  -- FromEnsures (↦-⇐⇒-left p⇐q p↦[s]r)
   -- ↪-⇐-left p⇐q (Transitivity (p↪[s]q , q↪[s]r)) = {!!} -- Transitivity (↪-⇐-left p⇐q p↪[s]q , q↪[s]r)
   -- ↪-⇐-left p⇐q (Disjunctivity (p↪[s]r , q↪[s]r)) = {!Disjunctivity {} (? , ?)!}
 
 
-  ↪-⇔-left : P ⇔ Q → P ↪[ S ] R → Q ↪[ S ] R
-  ↪-⇔-left p⇔q = ↪-⇐-left (proj₂ p⇔q)
-  -- ↪-⇔-left p⇔q (FromEnsures p↦[s]r) = FromEnsures (↦-⇔-left p⇔q p↦[s]r)
-  -- -- ↪-⇔-left p⇔q (Transitivity (p↪[s]p₁ , p₁↪[s]r)) = Transitivity (↪-⇔-left p⇔q p↪[s]p₁ , p₁↪[s]r)
-  -- ↪-⇔-left p⇔q (Transitivity (p↪[s]q , q↪[s]r)) = Transitivity (↪-⇔-left p⇔q p↪[s]q , q↪[s]r)
-  -- ↪-⇔-left p⇔q (Disjunctivity (p↪[s]r , q↪[s]r)) = {!↪-⇔-left p⇔q Disjunctivity (p↪[s]r , q↪[s]r)!}
-  -- ↪-⇔-left p⇔q (Disjunctivity (p↪[s]r , q↪[s]r)) = {!Disjunctivity {} (? , ?)!}
+  ↪-⇐⇒-left : P ⇐⇒ Q → P ↪[ S ] R → Q ↪[ S ] R
+  ↪-⇐⇒-left p⇐⇒q = ↪-⇐-left (proj₂ p⇐⇒q)
+  -- ↪-⇐⇒-left p⇐⇒q (FromEnsures p↦[s]r) = FromEnsures (↦-⇐⇒-left p⇐⇒q p↦[s]r)
+  -- -- ↪-⇐⇒-left p⇐⇒q (Transitivity (p↪[s]p₁ , p₁↪[s]r)) = Transitivity (↪-⇐⇒-left p⇐⇒q p↪[s]p₁ , p₁↪[s]r)
+  -- ↪-⇐⇒-left p⇐⇒q (Transitivity (p↪[s]q , q↪[s]r)) = Transitivity (↪-⇐⇒-left p⇐⇒q p↪[s]q , q↪[s]r)
+  -- ↪-⇐⇒-left p⇐⇒q (Disjunctivity (p↪[s]r , q↪[s]r)) = {!↪-⇐⇒-left p⇐⇒q Disjunctivity (p↪[s]r , q↪[s]r)!}
+  -- ↪-⇐⇒-left p⇐⇒q (Disjunctivity (p↪[s]r , q↪[s]r)) = {!Disjunctivity {} (? , ?)!}
 
   -- impliesLeadsToLeft : P ⇒ Q → P ↪[ S ] R → Q ↪[ S ] R
   -- impliesLeadsToLeft p⇒q (FromEnsures ensures) = FromEnsures (impliesEnsuresLeft p⇒q ensures)
@@ -655,8 +654,8 @@ module Statements (varCount : ℕ) (varTypes : Fin varCount → Types) where
 
   -- pspFromDisjunctivity : (P ↪[ S ] Q × P₁ ↪[ S ] Q) → R ▷[ S ] B → ((P ▽ P₁) △ R) ↪[ S ] (Q △ R ▽ B)
   -- pspFromDisjunctivity {P} {S} {Q} {P₁} {R} (p₁↪[s]q , p₂↪[s]q) r▷[s]b =
-  --   ↪-⇔-left {(P △ R) ▽ (P₁ △ R)} {(P ▽ P₁) △ R}
-  --     (⇔Symmetric andDistributiveRight)
+  --   ↪-⇐⇒-left {(P △ R) ▽ (P₁ △ R)} {(P ▽ P₁) △ R}
+  --     (⇐⇒Symmetric andDistributiveRight)
   --     (Disjunctivity (PSP (p₁↪[s]q , r▷[s]b) , PSP (p₂↪[s]q , r▷[s]b)))
 
   PSP (FromEnsures ensures , r▷[s]b) = FromEnsures (pspFromEnsures ensures r▷[s]b)
@@ -675,6 +674,6 @@ module Statements (varCount : ℕ) (varTypes : Fin varCount → Types) where
     )
 
   PSP (Disjunctivity (p₁↪[s]q , p₂↪[s]q) , r▷[s]b) =
-    ↪-⇔-left
-      (⇔Symmetric andDistributiveRight)
+    ↪-⇐⇒-left
+      (⇐⇒Symmetric andDistributiveRight)
       (Disjunctivity (PSP (p₁↪[s]q , r▷[s]b) , PSP (p₂↪[s]q , r▷[s]b)))
