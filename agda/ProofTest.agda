@@ -5,10 +5,11 @@ open import Data.Unit
 open import Data.Bool hiding (_<_)
 open import Data.Nat
 open import Data.Fin hiding (_+_)
+open import Data.Fin.Patterns
 open import Data.Product
 open import Data.Sum
 open import Data.List
-open import Data.List.All
+open import Data.List.Relation.Unary.All
 
 open import Relation.Binary.PropositionalEquality as Eq hiding ([_])
 
@@ -26,21 +27,21 @@ open module NatOnlyStatements = Statements 1 varTypes
 lemm3 : {X Y : Set} {f g : X → Y} {x : X} {y : Y} → f ≡ g → f x ≡ y → g x ≡ y
 lemm3 refl p = p
 
+Before : Predicate
+Before = EQ v[ 0F ] (Const 1)
+
+After : Predicate
+After = EQ v[ 0F ] (Const 2)
+
+cond : Predicate
+cond = LT v[ 0F ] (Const 3)
+
 inst : Instruction
-inst = Assignment [(0F , Plus v[ 0F ] (Const 1))]
+inst = Assignment 0F (Plus v[ 0F ] (Const 1))
 
-asdf2 : (EQ v[ 0F ] (Const 1)) ▷[
-    [
-      ((LT v[ 0F ] (Const 3))
-      ,
-      Assignment [(0F , Plus v[ 0F ] (Const 1))])
-    ]
-  ] (EQ v[ 0F ] (Const 2))
+prf : {st : State} → (st ⊢ (Before △ ⌝ After)) → (st ⊢ cond) → (⟦ [ inst ] ⟧il st ⊢ (Before ▽ After))
+prf (ownRefl p , ⌝q) r rewrite p = inj₂ (ownRefl refl)
 
-asdf2 =
-  ▷-proof
-    {EQ v[ 0F ] (Const 1)}
-    {EQ v[ 0F ] (Const 2)}
-    (
-      (λ p⌝q r → inj₂ (cong (_+ 1) (proj₁ p⌝q)))
-    ∷ [])
+asdf2 : Before ▷[ [ ( cond , [ inst ] ) ] ] After
+asdf2 = ▷-proof {Before} {After} ((λ { {st} → prf {st} }) ∷ [])
+-- asdf2 = ▷-proof {Before} {After} (prf ∷ [])

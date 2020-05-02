@@ -207,9 +207,9 @@ module Program (varCount : ℕ) (varTypes : Fin varCount → Types) where
     SetArray : {A : Types} → Expression Nat → Expression A → Expression (Array A) → Expression (Array A)
     Var : (x : Vars) → Expression (varTypes x)
     Plus : Expression Nat → Expression Nat → Expression Nat
-    Hiext : {A : Types} → Expression A → Expression (DataChannel A) → Expression (DataChannel A)
+    -- Hiext : {A : Types} → Expression A → Expression (DataChannel A) → Expression (DataChannel A)
     Lov : {A : Types} → Expression (DataChannel A) → Expression A
-    Lorem : {A : Types} → Expression (DataChannel A) → Expression (DataChannel A)
+    -- Lorem : {A : Types} → Expression (DataChannel A) → Expression (DataChannel A)
     History : {A : Types} → Expression (DataChannel A) → Expression (DataChannel A)
     Len : {A : Types} → Expression (DataChannel A) → Expression (Nat)
 
@@ -267,9 +267,9 @@ module Program (varCount : ℕ) (varTypes : Fin varCount → Types) where
   ⟦ Var x ⟧e state = state x
   ⟦ Plus e e₁ ⟧e state = ⟦ e ⟧e state + ⟦ e₁ ⟧e state
 
-  ⟦ Hiext e e₁ ⟧e state = hiext (⟦ e ⟧e state) (⟦ e₁ ⟧e state)
+  -- ⟦ Hiext e e₁ ⟧e state = hiext (⟦ e ⟧e state) (⟦ e₁ ⟧e state)
   ⟦ Lov e ⟧e state = lov (⟦ e ⟧e state)
-  ⟦ Lorem e ⟧e state = lorem (⟦ e ⟧e state)
+  -- ⟦ Lorem e ⟧e state = lorem (⟦ e ⟧e state)
   ⟦ History e ⟧e state = history (⟦ e ⟧e state)
   ⟦ Len e ⟧e state = len' (⟦ e ⟧e state)
 
@@ -280,24 +280,81 @@ module Program (varCount : ℕ) (varTypes : Fin varCount → Types) where
   VarValue = Σ Vars (λ x → Expression (varTypes x))
 
   data Instruction : Set where
-    SKIP : Instruction
-    Assignment : List VarValue → Instruction
+    -- SKIP : Instruction
+    Assignment : (var : Vars) → Expression (varTypes var) → Instruction
+    Hiext :
+      (A : Types) →
+      (var : Vars) → (varTypes var ≡ DataChannel A) → Expression A → Instruction
+    Lorem : (A : Types) → (var : Vars) → (varTypes var ≡ DataChannel A) → Instruction
 
-  assign : List VarValue → State → State → State
-  assign [] st₀ st = st
-  assign ((var , value) ∷ rest) st₀ st =
-    assign rest st₀ newState
-      where
-        newState : State
-        newState x with (x Data.Fin.≟ var)
-        -- newState x | yes refl = ⟦ value ⟧e st₀
-        newState x | yes p rewrite p = ⟦ value ⟧e st₀
-        newState x | no ¬p = st x
+  assign-value : (var : Vars) → evaluateType (varTypes var) → State → State
+  assign-value var value st x with (x Data.Fin.≟ var)
+  ... | no ¬p = st x
+  ... | yes p rewrite p = value
 
+  assign : (var : Vars) → Expression (varTypes var) → State → State → State
+  assign var value st₀ st with (varTypes var) | inspect varTypes var
+  ... | DataChannel _ | _ = st
+  ... | _ | Eq.[ eq ] rewrite sym eq = assign-value var (⟦ value ⟧e st₀) st
+
+  -- assign : (var : Vars) → Expression (varTypes var) → State → State → State
+  -- assign var value st₀ st x with (x Data.Fin.≟ var) | (varTypes var) | inspect varTypes var
+  -- ... | no ¬p | _ | _ = st x
+  -- ... | yes p | DataChannel b | _ = st x
+  -- ... | yes p | _ | Eq.[ eq ] rewrite sym eq rewrite p = ⟦ value ⟧e st₀
+
+  -- assign : List VarValue → State → State → State
+  -- assign [] st₀ st = st
+  -- assign ((var , value) ∷ rest) st₀ st =
+  --   assign rest st₀ newState
+  --     where
+  --       newState : State
+  --       newState x with (x Data.Fin.≟ var)
+  --       -- newState x | yes refl = ⟦ value ⟧e st₀
+  --       newState x | yes p rewrite p = ⟦ value ⟧e st₀
+  --       newState x | no ¬p = st x
+
+  -- Parallel Instruction
+  ⟦_⟧pi : Instruction → State → State → State
+  ⟦ Assignment var value ⟧pi = assign var value
+  ⟦ Hiext A var eq value ⟧pi st₀ = assign-value var extended
+    where
+      fits : evaluateType (varTypes var) ≡ QueueWithHistory A
+      fits rewrite eq = refl
+
+      current : QueueWithHistory A
+      current rewrite sym fits = ⟦ Var var ⟧e st₀
+
+      extended : evaluateType (varTypes var)
+      extended rewrite fits = hiext (⟦ value ⟧e st₀) current
+
+  ⟦ Lorem A var eq ⟧pi st₀ = assign-value var removed
+    where
+      fits : evaluateType (varTypes var) ≡ QueueWithHistory A
+      fits rewrite eq = refl
+
+      current : QueueWithHistory A
+      current rewrite sym fits = ⟦ Var var ⟧e st₀
+
+      removed : evaluateType (varTypes var)
+      removed rewrite fits = lorem current
+
+  -- Instruction
   ⟦_⟧i : Instruction → State → State
-  ⟦ SKIP ⟧i st = st
-  ⟦ Assignment varExpressionPairs ⟧i st = assign varExpressionPairs st st
+  -- ⟦ SKIP ⟧i st = st
+  ⟦ i ⟧i st = ⟦ i ⟧pi st st
 
+  -- Parallel Instruction List
+  ⟦_⟧pil : List Instruction → State → State → State
+  ⟦ [] ⟧pil st₀ = id
+  ⟦ pi ∷ pis ⟧pil st₀ st = ⟦ pis ⟧pil st₀ (⟦ pi ⟧pi st₀ st)
+
+  -- Instruction List
+  ⟦_⟧il : List Instruction → State → State
+  ⟦ il ⟧il st = ⟦ il ⟧pil st st
+  -- ⟦ [] ⟧il st = st
+  -- ⟦ i ∷ is ⟧il st = ⟦ is ⟧il (⟦ i ⟧i st)
+  -- ⟦ i ∷ is ⟧il st = ⟦ i ⟧i (⟦ is ⟧il st)
 
   -- Predicate and its semantics
 
@@ -387,28 +444,32 @@ module Program (varCount : ℕ) (varTypes : Fin varCount → Types) where
 
   --
 
-  ConditionalInstruction : Set
-  ConditionalInstruction = (Predicate × Instruction)
+  ConditionalInstructionList : Set
+  ConditionalInstructionList = (Predicate × List Instruction)
 
-  ⟦⟧ciHelper : Bool → Instruction → State → State
-  ⟦⟧ciHelper false i st = st
-  ⟦⟧ciHelper true i st = ⟦ i ⟧i st
+  -- ⟦⟧ciHelper : Bool → Instruction → State → State
+  -- ⟦⟧ciHelper false i st = st
+  -- ⟦⟧ciHelper true i st = ⟦ i ⟧i st
 
-  ⟦_⟧ci : ConditionalInstruction → State → State
-  ⟦ (p , i) ⟧ci st = ⟦⟧ciHelper (⟦ p ⟧c st) i st
-  -- ⟦ (p , i) ⟧ci st with ⟦ p ⟧c st
+  ⟦⟧cilHelper : Bool → List Instruction → State → State
+  ⟦⟧cilHelper false il st = st
+  ⟦⟧cilHelper true il st = ⟦ il ⟧il st
+
+  ⟦_⟧cil : ConditionalInstructionList → State → State
+  ⟦ (p , il) ⟧cil st = ⟦⟧cilHelper (⟦ p ⟧c st) il st
+  -- ⟦ (p , il) ⟧cil st with ⟦ p ⟧c st
   -- ... | false = st
-  -- ... | true = ⟦ i ⟧i st
+  -- ... | true = ⟦ il ⟧il st
 
 
   ParallelProgram : Set
-  ParallelProgram = List ConditionalInstruction
+  ParallelProgram = List ConditionalInstructionList
 
   NonEmpty : ParallelProgram → Set
   NonEmpty S = ¬ (S ≡ [])
 
   InitializedProgram : Set
-  InitializedProgram = (ConditionalInstruction × ParallelProgram)
+  InitializedProgram = (ConditionalInstructionList × ParallelProgram)
 
   --
 
