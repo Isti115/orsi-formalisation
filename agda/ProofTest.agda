@@ -21,7 +21,7 @@ import Statements
 varTypes : Fin 1 → Types
 varTypes = (λ n → Nat)
 
-open module NatOnlyBase = Base.Program 1 varTypes
+open module NatOnlyBase = Base.Environment 1 varTypes
 open module NatOnlyStatements = Statements 1 varTypes
 
 lemm3 : {X Y : Set} {f g : X → Y} {x : X} {y : Y} → f ≡ g → f x ≡ y → g x ≡ y
@@ -42,6 +42,5 @@ inst = Assignment 0F (Plus v[ 0F ] (Const 1))
 prf : {st : State} → (st ⊢ (Before △ ⌝ After)) → (st ⊢ cond) → (⟦ [ inst ] ⟧il st ⊢ (Before ▽ After))
 prf (ownRefl p , ⌝q) r rewrite p = inj₂ (ownRefl refl)
 
-asdf2 : Before ▷[ [ ( cond , [ inst ] ) ] ] After
-asdf2 = ▷-proof {Before} {After} ((λ { {st} → prf {st} }) ∷ [])
--- asdf2 = ▷-proof {Before} {After} (prf ∷ [])
+thm : Before ▷[ [ ( cond , [ inst ] ) ] ] After
+thm = ▷-proof {Before} {After} ((λ { {st} → prf {st} }) ∷ [])

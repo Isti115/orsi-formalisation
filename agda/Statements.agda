@@ -19,11 +19,11 @@ open import Relation.Binary.PropositionalEquality as Eq
 open import Function
 
 open import Base
--- open module NatOnly = Base.Program (λ n → Nat)
+-- open module NatOnly = Base.Environment (λ n → Nat)
 
 module Statements (varCount : ℕ) (varTypes : Fin varCount → Types) where
 
-  open module ProgramInstance = Base.Program varCount varTypes
+  open module ProgramInstance = Base.Environment varCount varTypes
 
   ⌝_ : Predicate → Predicate
   ⌝_ = NOT
@@ -481,14 +481,14 @@ module Statements (varCount : ℕ) (varTypes : Fin varCount → Types) where
   --
 
   -- "Elkerülhetetlen / Inevitable"
-  data LeadsTo : ParallelProgram → Predicate → Predicate → Statement where
-    FromEnsures : Ensures S P Q → LeadsTo S P Q
-    Transitivity : ((LeadsTo S P Q) × (LeadsTo S Q R)) → LeadsTo S P R
-    Disjunctivity : ((LeadsTo S P R) × (LeadsTo S Q R)) → LeadsTo S (P ▽ Q) R
+  data Inevitable : ParallelProgram → Predicate → Predicate → Statement where
+    FromEnsures : Ensures S P Q → Inevitable S P Q
+    Transitivity : ((Inevitable S P Q) × (Inevitable S Q R)) → Inevitable S P R
+    Disjunctivity : ((Inevitable S P R) × (Inevitable S Q R)) → Inevitable S (P ▽ Q) R
 
   infix 4 _↪[_]_
   _↪[_]_ : Predicate → ParallelProgram → Predicate → Statement
-  _↪[_]_ P S Q = LeadsTo S P Q
+  _↪[_]_ P S Q = Inevitable S P Q
 
   ↪-NonEmpty : P ↪[ S ] Q → NonEmpty S
   ↪-NonEmpty (FromEnsures p↦[s]q) = ↦-NonEmpty p↦[s]q
@@ -520,10 +520,10 @@ module Statements (varCount : ℕ) (varTypes : Fin varCount → Types) where
   -- ↪-⇐⇒-left p⇐⇒q (Disjunctivity (p↪[s]r , q↪[s]r)) = {!↪-⇐⇒-left p⇐⇒q Disjunctivity (p↪[s]r , q↪[s]r)!}
   -- ↪-⇐⇒-left p⇐⇒q (Disjunctivity (p↪[s]r , q↪[s]r)) = {!Disjunctivity {} (? , ?)!}
 
-  -- impliesLeadsToLeft : P ⇒ Q → P ↪[ S ] R → Q ↪[ S ] R
-  -- impliesLeadsToLeft p⇒q (FromEnsures ensures) = FromEnsures (impliesEnsuresLeft p⇒q ensures)
-  -- impliesLeadsToLeft p⇒q (Transitivity (p↪[s]p₁ , p₁↪[s]r)) = {!   !}
-  -- impliesLeadsToLeft p⇒q (Disjunctivity (p₁↪[s]r , p₂↪[s]r)) = {!   !}
+  -- impliesInevitableLeft : P ⇒ Q → P ↪[ S ] R → Q ↪[ S ] R
+  -- impliesInevitableLeft p⇒q (FromEnsures ensures) = FromEnsures (impliesEnsuresLeft p⇒q ensures)
+  -- impliesInevitableLeft p⇒q (Transitivity (p↪[s]p₁ , p₁↪[s]r)) = {!   !}
+  -- impliesInevitableLeft p⇒q (Disjunctivity (p₁↪[s]r , p₂↪[s]r)) = {!   !}
 
   -- inv / INV
 

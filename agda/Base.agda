@@ -103,7 +103,7 @@ data Types where
   DataChannel : Types → Types
 
 evaluateType Nat = ℕ
-evaluateType (Array A) = Σ ℕ (λ l → (Fin l → (evaluateType A)))
+evaluateType (Array A) = ℕ × (ℕ → (evaluateType A))
 evaluateType (DataChannel A) = QueueWithHistory A
 
 defaultValue Nat = zero
@@ -118,12 +118,8 @@ infix 4 _≋_
 data _≋_ {A : Types} (a b : evaluateType A) : Set
 -- _≋_ : {A : Types} → (a b : evaluateType A) → Set
 
-finDownFrom : (n : ℕ) → List (Fin n)
-finDownFrom zero = []
-finDownFrom (suc n) = fromℕ n ∷ Data.List.map inject₁ (finDownFrom n)
-
-finListEq : {A : Types} → (l : ℕ) → (f g : Fin l → evaluateType A) → Set
-finListEq l f g = (i : Fin l) → (f i ≋ g i)
+natFunctionEqualUpTo : {A : Types} → (l : ℕ) → (f g : ℕ → evaluateType A) → Set
+natFunctionEqualUpTo l f g = All (λ i → f i ≋ g i) (downFrom l)
 
 ownListEq : {A : Types} → (a b : List (evaluateType A)) → Set
 ownListEq [] [] = ⊤
@@ -132,7 +128,7 @@ ownListEq (a ∷ as) [] = ⊥
 ownListEq (a ∷ as) (b ∷ bs) = a ≋ b × (ownListEq as bs)
 
 ownEq {Nat} a b = a ≡ b
-ownEq {Array A} (la , as) (lb , bs) = Σ (la ≡ lb) λ { refl → finListEq la as bs }
+ownEq {Array A} (la , as) (lb , bs) = (la ≡ lb) × natFunctionEqualUpTo la as bs
 ownEq {DataChannel A} a b = ownListEq (queueToList (proj₁ a)) (queueToList (proj₁ b))
 
 data _≋_ {A} a b where
@@ -144,18 +140,14 @@ data _≋_ {A} a b where
 infix 4 _≋?_
 _≋?_ : {A : Types} → (a b : evaluateType A) → Dec (a ≋ b)
 
-finListDec : {A : Types} → (l : ℕ) → (a b : Fin l → evaluateType A) → Dec (finListEq l a b)
-finListDec zero a b = yes (λ ())
-finListDec (suc l) a b with (a zero ≋? b zero) | (finListDec l (a ∘ suc) (b ∘ suc))
-... | .true because ofʸ p | .true because ofʸ p₁ = yes (λ { zero → p ; (suc i) → p₁ i })
-... | .true because ofʸ p | .false because ofⁿ ¬p = no (λ z → ¬p (z ∘ suc))
-... | .false because ofⁿ ¬p | _ = no (λ z → ¬p (z zero))
+listFunctionDec : {A : Types} → (l : ℕ) → (a b : ℕ → evaluateType A) → Dec (natFunctionEqualUpTo l a b)
+listFunctionDec l a b = Data.List.Relation.Unary.All.all (λ i → a i ≋? b i) (downFrom l)
 
 arrayDecEq : {A : Types} → (a b : (evaluateType (Array A))) → Dec (ownEq {Array A} a b)
 arrayDecEq (la , as) (lb , bs) with la Data.Nat.≟ lb
-arrayDecEq (la , as) (lb , bs) | yes refl with (finListDec la as bs)
-arrayDecEq (la , as) (la , bs) | yes refl | yes p = yes (refl , p)
-arrayDecEq (la , as) (la , bs) | yes refl | no ¬p = no λ { (refl , ⌝leq) → ¬p ⌝leq }
+arrayDecEq (la , as) (lb , bs) | yes p with listFunctionDec la as bs
+arrayDecEq (la , as) (lb , bs) | yes p | yes p₁ = yes (p , p₁)
+arrayDecEq (la , as) (lb , bs) | yes p | no ¬p = no (λ z → ¬p (proj₂ z))
 arrayDecEq (la , as) (lb , bs) | no ¬p = no (λ z → ¬p (proj₁ z))
 
 ownListDecEq : {A : Types} → (a b : List (evaluateType A)) → Dec (ownListEq a b)
@@ -187,7 +179,7 @@ a ≋? b with (decEq a b)
 
 --
 
-module Program (varCount : ℕ) (varTypes : Fin varCount → Types) where
+module Environment (varCount : ℕ) (varTypes : Fin varCount → Types) where
 
   Vars : Set
   Vars = Fin varCount
@@ -207,9 +199,9 @@ module Program (varCount : ℕ) (varTypes : Fin varCount → Types) where
     SetArray : {A : Types} → Expression Nat → Expression A → Expression (Array A) → Expression (Array A)
     Var : (x : Vars) → Expression (varTypes x)
     Plus : Expression Nat → Expression Nat → Expression Nat
-    -- Hiext : {A : Types} → Expression A → Expression (DataChannel A) → Expression (DataChannel A)
+    Hiext : {A : Types} → Expression A → Expression (DataChannel A) → Expression (DataChannel A)
     Lov : {A : Types} → Expression (DataChannel A) → Expression A
-    -- Lorem : {A : Types} → Expression (DataChannel A) → Expression (DataChannel A)
+    Lorem : {A : Types} → Expression (DataChannel A) → Expression (DataChannel A)
     History : {A : Types} → Expression (DataChannel A) → Expression (DataChannel A)
     Len : {A : Types} → Expression (DataChannel A) → Expression (Nat)
 
@@ -247,29 +239,29 @@ module Program (varCount : ℕ) (varTypes : Fin varCount → Types) where
   -- getListItem : {A : Types} → {le : ℕ} → Fin le → (li : evaluateType (Array A)) → (proj₁ li ≡ le) → evaluateType A
   -- getListItem = {!!}
 
-  setListItem : {A : Types} → {le : ℕ} → Fin le → evaluateType A → (li : evaluateType (Array A)) → (proj₁ li ≡ le) → evaluateType (Array A)
-  setListItem i v (l , f) refl = (l , λ j → if isYes (i Data.Fin.≟ j) then v else (f j))
-  -- setListItem i v (l , f) refl = (l , λ j → if ⌊ i Data.Fin.≟ j ⌋ then v else (f j))
+  setListItem : {A : Types} → ℕ → evaluateType A → evaluateType (Array A) → evaluateType (Array A)
+  -- setListItem i n f j = if ⌊ j Data.Nat.≟ i ⌋ then n else (f j)
+  setListItem {A} i v (l , f) = (l , g) where
+    g : ℕ → evaluateType A
+    g j with j Data.Nat.≟ i
+    g j | yes p = v
+    g j | no ¬p = f j
 
   ⟦_⟧e : {A : Types} → Expression A → State → evaluateType A
   ⟦ Const value ⟧e state = value
 
-  ⟦ GetArray ei el ⟧e state with ⟦ ei ⟧e state | ⟦ el ⟧e state
-  ⟦ GetArray ei el ⟧e state | i | l , ls with i Data.Nat.<? l
-  ⟦ GetArray ei el ⟧e state | i | l , ls | yes p = ls (fromℕ< p)
-  ⟦ GetArray {A} ei el ⟧e state | i | l , ls | no ¬p = defaultValue A
+  ⟦ GetArray ei eln ⟧e state with ⟦ ei ⟧e state | ⟦ eln ⟧e state
+  ⟦ GetArray ei eln ⟧e state | i | l , ls = ls i
 
-  ⟦ SetArray ei ev el ⟧e state with ⟦ ei ⟧e state | ⟦ ev ⟧e state | ⟦ el ⟧e state
-  ⟦ SetArray ei ev el ⟧e state | i | v | (l , f) with i Data.Nat.<? l
-  ⟦ SetArray ei ev el ⟧e state | i | v | l , f | yes p = setListItem (fromℕ< p) v (l , f) refl
-  ⟦ SetArray ei ev el ⟧e state | i | v | l , f | no ¬p = (l , f) -- setListItem i m ln
+  ⟦ SetArray ei em eln ⟧e state with ⟦ ei ⟧e state | ⟦ em ⟧e state | ⟦ eln ⟧e state
+  ⟦ SetArray ei em eln ⟧e state | i | m | ln = setListItem i m ln
 
   ⟦ Var x ⟧e state = state x
   ⟦ Plus e e₁ ⟧e state = ⟦ e ⟧e state + ⟦ e₁ ⟧e state
 
-  -- ⟦ Hiext e e₁ ⟧e state = hiext (⟦ e ⟧e state) (⟦ e₁ ⟧e state)
+  ⟦ Hiext e e₁ ⟧e state = hiext (⟦ e ⟧e state) (⟦ e₁ ⟧e state)
   ⟦ Lov e ⟧e state = lov (⟦ e ⟧e state)
-  -- ⟦ Lorem e ⟧e state = lorem (⟦ e ⟧e state)
+  ⟦ Lorem e ⟧e state = lorem (⟦ e ⟧e state)
   ⟦ History e ⟧e state = history (⟦ e ⟧e state)
   ⟦ Len e ⟧e state = len' (⟦ e ⟧e state)
 
@@ -282,10 +274,10 @@ module Program (varCount : ℕ) (varTypes : Fin varCount → Types) where
   data Instruction : Set where
     -- SKIP : Instruction
     Assignment : (var : Vars) → Expression (varTypes var) → Instruction
-    Hiext :
-      (A : Types) →
-      (var : Vars) → (varTypes var ≡ DataChannel A) → Expression A → Instruction
-    Lorem : (A : Types) → (var : Vars) → (varTypes var ≡ DataChannel A) → Instruction
+    -- Hiext :
+    --   (A : Types) →
+    --   (var : Vars) → (varTypes var ≡ DataChannel A) → Expression A → Instruction
+    -- Lorem : (A : Types) → (var : Vars) → (varTypes var ≡ DataChannel A) → Instruction
 
   assign-value : (var : Vars) → evaluateType (varTypes var) → State → State
   assign-value var value st x with (x Data.Fin.≟ var)
@@ -293,9 +285,12 @@ module Program (varCount : ℕ) (varTypes : Fin varCount → Types) where
   ... | yes p rewrite p = value
 
   assign : (var : Vars) → Expression (varTypes var) → State → State → State
-  assign var value st₀ st with (varTypes var) | inspect varTypes var
-  ... | DataChannel _ | _ = st
-  ... | _ | Eq.[ eq ] rewrite sym eq = assign-value var (⟦ value ⟧e st₀) st
+  assign var value st₀ st = assign-value var (⟦ value ⟧e st₀) st
+
+  -- assign : (var : Vars) → Expression (varTypes var) → State → State → State
+  -- assign var value st₀ st with (varTypes var) | inspect varTypes var
+  -- ... | DataChannel _ | _ = st
+  -- ... | _ | Eq.[ eq ] rewrite sym eq = assign-value var (⟦ value ⟧e st₀) st
 
   -- assign : (var : Vars) → Expression (varTypes var) → State → State → State
   -- assign var value st₀ st x with (x Data.Fin.≟ var) | (varTypes var) | inspect varTypes var
@@ -317,27 +312,27 @@ module Program (varCount : ℕ) (varTypes : Fin varCount → Types) where
   -- Parallel Instruction
   ⟦_⟧pi : Instruction → State → State → State
   ⟦ Assignment var value ⟧pi = assign var value
-  ⟦ Hiext A var eq value ⟧pi st₀ = assign-value var extended
-    where
-      fits : evaluateType (varTypes var) ≡ QueueWithHistory A
-      fits rewrite eq = refl
+  -- ⟦ Hiext A var eq value ⟧pi st₀ = assign-value var extended
+  --   where
+  --     fits : evaluateType (varTypes var) ≡ QueueWithHistory A
+  --     fits rewrite eq = refl
 
-      current : QueueWithHistory A
-      current rewrite sym fits = ⟦ Var var ⟧e st₀
+  --     current : QueueWithHistory A
+  --     current rewrite sym fits = ⟦ Var var ⟧e st₀
 
-      extended : evaluateType (varTypes var)
-      extended rewrite fits = hiext (⟦ value ⟧e st₀) current
+  --     extended : evaluateType (varTypes var)
+  --     extended rewrite fits = hiext (⟦ value ⟧e st₀) current
 
-  ⟦ Lorem A var eq ⟧pi st₀ = assign-value var removed
-    where
-      fits : evaluateType (varTypes var) ≡ QueueWithHistory A
-      fits rewrite eq = refl
+  -- ⟦ Lorem A var eq ⟧pi st₀ = assign-value var removed
+  --   where
+  --     fits : evaluateType (varTypes var) ≡ QueueWithHistory A
+  --     fits rewrite eq = refl
 
-      current : QueueWithHistory A
-      current rewrite sym fits = ⟦ Var var ⟧e st₀
+  --     current : QueueWithHistory A
+  --     current rewrite sym fits = ⟦ Var var ⟧e st₀
 
-      removed : evaluateType (varTypes var)
-      removed rewrite fits = lorem current
+  --     removed : evaluateType (varTypes var)
+  --     removed rewrite fits = lorem current
 
   -- Instruction
   ⟦_⟧i : Instruction → State → State

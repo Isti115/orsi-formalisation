@@ -8,19 +8,19 @@ open import Data.Empty
 open import Data.Product
 open import Data.Sum
 open import Data.List
-open import Data.List.All
-open import Data.List.Any
+open import Data.List.Relation.Unary.All
+open import Data.List.Relation.Unary.Any
 open import Relation.Nullary
 open import Relation.Nullary.Decidable
 open import Relation.Binary.PropositionalEquality as Eq
-open import Function
+open import Function hiding (_↔_)
 
 import Base
 import Statements
 
 module Constructions (varCount : ℕ) (varTypes : Fin varCount → Base.Types) where
 
-  open module ProgramInstance = Base.Program varCount varTypes
+  open module ProgramInstance = Base.Environment varCount varTypes
   open module StatementsInstance = Statements varCount varTypes
 
   variable
@@ -62,10 +62,10 @@ module Constructions (varCount : ℕ) (varTypes : Fin varCount → Base.Types) w
   func-times-distr-imp : {X : Set} → {A B C : X → Set} → ({x : X} → A x → (B x × C x)) → (({x : X} → A x → B x) × ({x : X} → A x → C x))
   func-times-distr-imp f = ((λ a → proj₁ (f a)) , (λ a → proj₂ (f a)))
 
-  ▷-Union-from : (P ▷[ Union S1 S2 ] Q) → (P ▷[ S1 ] Q × P ▷[ S2 ] Q)
-  ▷-Union-from {S1 = []} ▷u = ((const []) , ▷u)
-  ▷-Union-from {S1 = _ ∷ _} ▷u =
-    func-times-distr λ { (p , ⌝q) → {! with ...!} } -- (λ x₁ → {!!}) , (λ x₁ → {!!}) -- func-times {!!} {!!}
+  -- ▷-Union-from : (P ▷[ Union S1 S2 ] Q) → (P ▷[ S1 ] Q × P ▷[ S2 ] Q)
+  -- ▷-Union-from {S1 = []} ▷u = ((const []) , ▷u)
+  -- ▷-Union-from {S1 = _ ∷ _} ▷u =
+  --   func-times-distr λ { (p , ⌝q) → {! with ...!} } -- (λ x₁ → {!!}) , (λ x₁ → {!!}) -- func-times {!!} {!!}
 
   -- func-times : {A B C : Set} → ((A → B) × (A → C)) → A → (B × C)
   -- func-times (f , g) a = (f a , g a)
@@ -75,6 +75,8 @@ module Constructions (varCount : ℕ) (varTypes : Fin varCount → Base.Types) w
 
   ▷-Union : (P ▷[ Union S1 S2 ] Q) ↔ (P ▷[ S1 ] Q × P ▷[ S2 ] Q)
   ▷-Union = (λ x → ((▷-Union-from-1 x) , (▷-Union-from-2 x))) , ▷-Union-to
+
+-- 1 ≡ 2 ↔ 2 ≡ 1
 
   --
 
