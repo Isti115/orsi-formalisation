@@ -194,27 +194,37 @@ module Environment (varCount : ℕ) (varTypes : Fin varCount → Types) where
 
   data Expression : Types → Set where
     Const : {A : Types} → evaluateType A → Expression A
-    -- ConstList : {A : Types} → (evaluateType (Array A)) → Expression (Array A)
-    GetArray : {A : Types} → Expression Nat → Expression (Array A) → Expression A
-    SetArray : {A : Types} → Expression Nat → Expression A → Expression (Array A) → Expression (Array A)
+    -- ConstList : {A : Types} → (evaluateType (Array A)) →
+    --   Expression (Array A)
+    GetArray : {A : Types} →
+      Expression Nat → Expression (Array A) → Expression A
+    SetArray : {A : Types} →
+      Expression Nat → Expression A → Expression (Array A) →
+      Expression (Array A)
     Var : (x : Vars) → Expression (varTypes x)
     Plus : Expression Nat → Expression Nat → Expression Nat
-    Hiext : {A : Types} → Expression A → Expression (DataChannel A) → Expression (DataChannel A)
+    Hiext : {A : Types} →
+      Expression A → Expression (DataChannel A) → Expression (DataChannel A)
     Lov : {A : Types} → Expression (DataChannel A) → Expression A
-    Lorem : {A : Types} → Expression (DataChannel A) → Expression (DataChannel A)
-    History : {A : Types} → Expression (DataChannel A) → Expression (DataChannel A)
+    Lorem : {A : Types} →
+      Expression (DataChannel A) → Expression (DataChannel A)
+    History : {A : Types} →
+      Expression (DataChannel A) → Expression (DataChannel A)
     Len : {A : Types} → Expression (DataChannel A) → Expression (Nat)
 
-  infix 3 v[_]
+  -- infix 3 v[_]
   v[_] : (x : Vars) → Expression (varTypes x)
   v[ x ] = Var x
 
   infix 3 _g[_]
-  _g[_] : {A : Types} → Expression (Array A) → Expression Nat → Expression A
+  _g[_] : {A : Types} →
+    Expression (Array A) → Expression Nat → Expression A
   el g[ ei ] = GetArray ei el
 
   infixl 3 _s[_]=_
-  _s[_]=_ : {A : Types} → Expression (Array A) → Expression Nat → Expression A → Expression (Array A)
+  _s[_]=_ : {A : Types} →
+    Expression (Array A) → Expression Nat → Expression A →
+    Expression (Array A)
   el s[ ei ]= ev = SetArray ei ev el
 
   listToFunction : List ℕ → ℕ → ℕ
@@ -268,8 +278,8 @@ module Environment (varCount : ℕ) (varTypes : Fin varCount → Types) where
 
   -- Instruction and its semantics
 
-  VarValue : Set
-  VarValue = Σ Vars (λ x → Expression (varTypes x))
+  -- VarValue : Set
+  -- VarValue = Σ Vars (λ x → Expression (varTypes x))
 
   data Instruction : Set where
     -- SKIP : Instruction
@@ -439,32 +449,38 @@ module Environment (varCount : ℕ) (varTypes : Fin varCount → Types) where
 
   --
 
-  ConditionalInstructionList : Set
-  ConditionalInstructionList = (Predicate × List Instruction)
+  Batch : Set
+  Batch = List Instruction
+
+  ⟦_⟧b : Batch → State → State
+  ⟦_⟧b = ⟦_⟧il
+
+  ConditionalBatch : Set
+  ConditionalBatch = (Predicate × Batch)
 
   -- ⟦⟧ciHelper : Bool → Instruction → State → State
   -- ⟦⟧ciHelper false i st = st
   -- ⟦⟧ciHelper true i st = ⟦ i ⟧i st
 
-  ⟦⟧cilHelper : Bool → List Instruction → State → State
-  ⟦⟧cilHelper false il st = st
-  ⟦⟧cilHelper true il st = ⟦ il ⟧il st
+  ⟦⟧cbHelper : Bool → Batch → State → State
+  ⟦⟧cbHelper false b st = st
+  ⟦⟧cbHelper true b st = ⟦ b ⟧b st
 
-  ⟦_⟧cil : ConditionalInstructionList → State → State
-  ⟦ (p , il) ⟧cil st = ⟦⟧cilHelper (⟦ p ⟧c st) il st
-  -- ⟦ (p , il) ⟧cil st with ⟦ p ⟧c st
+  ⟦_⟧cb : ConditionalBatch → State → State
+  ⟦ (P , b) ⟧cb st = ⟦⟧cbHelper (⟦ P ⟧c st) b st
+  -- ⟦ (P , b) ⟧cb st with ⟦ P ⟧c st
   -- ... | false = st
-  -- ... | true = ⟦ il ⟧il st
+  -- ... | true = ⟦ b ⟧b st
 
 
   ParallelProgram : Set
-  ParallelProgram = List ConditionalInstructionList
+  ParallelProgram = List ConditionalBatch
 
   NonEmpty : ParallelProgram → Set
   NonEmpty S = ¬ (S ≡ [])
 
   InitializedProgram : Set
-  InitializedProgram = (ConditionalInstructionList × ParallelProgram)
+  InitializedProgram = (Batch × ParallelProgram)
 
   --
 

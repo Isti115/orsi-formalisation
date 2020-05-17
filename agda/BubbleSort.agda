@@ -23,25 +23,25 @@ open Base._≋_
 import Statements
 
 varTypes : Fin 1 → Base.Types
-varTypes = (λ n → Base.Array Base.Nat)
+varTypes 0F = Base.Array Base.Nat
 
-open module ListNatOnlyBase = Base.Environment 1 varTypes
+-- varTypes : Fin 1 → Base.Types
+-- varTypes = (λ n → Base.Array Base.Nat)
+
+open module BubbleSortEnvironment = Base.Environment 1 varTypes
 open module ListNatOnlyStatements = Statements 1 varTypes
 
 makePredicate : ℕ → Predicate
-makePredicate n = (
-    GT (v[ 0F ] g[ Const n ]) (v[ 0F ] g[ Const (suc n) ])
-  )
+makePredicate n = GT (v[ 0F ] g[ Const n ]) (v[ 0F ] g[ Const (suc n) ])
 
 makeInstruction : ℕ → Instruction
-makeInstruction n = (
-    Assignment 0F
-      (
-        v[ 0F ]
-        s[ Const n ]=(v[ 0F ] g[ Const (suc n) ])
-        s[ Const (suc n) ]=(v[ 0F ] g[ Const n ])
-      )
-  )
+makeInstruction n =
+  Assignment 0F
+    (
+      v[ 0F ]
+      s[ Const n ]=(v[ 0F ] g[ Const (suc n) ])
+      s[ Const (suc n) ]=(v[ 0F ] g[ Const n ])
+    )
 
 bubbleSort : ℕ → ParallelProgram
 bubbleSort count =
@@ -168,7 +168,7 @@ rp-h4 {st} {n} eq = rp-h5 {st} (cong (λ z → (proj₂ (z 0F) n)) eq)
 -- rp-h4 {st} {n} eq = rp-h5 {st} (cong (_$ n) (cong (_$ 0F) eq))
 
 resultProof : {n : ℕ} →
-  st ≡ ⟦ makePredicate n , [ makeInstruction n ] ⟧cil st →
+  st ≡ ⟦ makePredicate n , [ makeInstruction n ] ⟧cb st →
   ⟦ Ordered' n ⟧a st
 resultProof {st} {n} fp with (ci-helper {st} {makePredicate n} fp)
 resultProof {st} {n} fp | inj₁ x with (≰⇒> x)
