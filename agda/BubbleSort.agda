@@ -1,9 +1,9 @@
 open import Relation.Nullary.Decidable
 open import Data.Empty
 open import Data.Unit hiding (_≤_)
-open import Data.Bool hiding (_≤_)
+open import Data.Bool hiding (_≤_ ; _<_)
 open import Data.Nat
-open import Data.Fin hiding (_≤_)
+open import Data.Fin hiding (_≤_ ; _<_)
 open import Data.Fin.Patterns
 open import Data.Nat.Properties
 open import Data.Product
@@ -59,7 +59,10 @@ Before = EQ (v[ 0F ] g[ Const 0 ]) (Const 1)
 After : Predicate
 After = EQ (v[ 0F ] g[ Const 0 ]) (Const 0)
 
-h1 : {x : ℕ} → suc (suc x) ≤ 1 → ⊥
+-- h1 : {x : ℕ} → suc (suc x) ≤ 1 → ⊥
+-- h1 (s≤s ())
+
+h1 : {x : ℕ} → suc x < 1 → ⊥
 h1 (s≤s ())
 
 helper :
@@ -153,27 +156,42 @@ Ordered (suc n) = Ordered' n △ (Ordered n)
 -- open import Function.Equivalence
 -- open import Data.Bool.Properties hiding (≤-reflexive)
 
-rp-h5 : {n : ℕ} →
-  proj₂ (st 0F) n ≡ proj₂ (⟦ makeInstruction n ⟧i st 0F) n →
-  ⟦ v[ 0F ] g[ Const n ] ⟧e st ≡ ⟦ v[ 0F ] g[ Const (suc n) ] ⟧e st
-rp-h5 {st} {n} eq with n Data.Nat.≟ (suc n)
-rp-h5 {st} {n} eq | no ¬p with n Data.Nat.≟ n
-rp-h5 {st} {n} eq | no ¬p | yes p = eq
-rp-h5 {st} {n} eq | no ¬p | no ¬p₁ = ⊥-elim (¬p₁ refl)
+-- neqsuc : (n : ℕ) → isYes (n Data.Nat.≟ (suc n)) ≡ false
+-- neqsuc zero = refl
+-- neqsuc (suc n) = {!neqsuc n!}
+
+-- neqsuc : (n : ℕ) → isYes (n Data.Nat.≟ (suc n)) ≡ false
+-- neqsuc n with n Data.Nat.≟ (suc n)
+-- ... | no ¬p = refl
+
+-- eqn : (n : ℕ) → isYes (n Data.Nat.≟ n) ≡ true
+-- eqn n with n Data.Nat.≟ n
+-- ... | no ¬p = ⊥-elim (¬p refl)
+-- ... | yes p = refl
 
 rp-h4 : {n : ℕ} →
+  proj₂ (st 0F) n ≡ proj₂ (⟦ makeInstruction n ⟧i st 0F) n →
+  ⟦ v[ 0F ] g[ Const n ] ⟧e st ≡ ⟦ v[ 0F ] g[ Const (suc n) ] ⟧e st
+-- rp-h4 {st} {n} eq rewrite neqsuc n = {!!}
+-- rp-h4 {st} {n} eq | no ¬p rewrite eqn n = {!eqn n!}
+rp-h4 {st} {n} eq with n Data.Nat.≟ (suc n)
+rp-h4 {st} {n} eq | no ¬p with n Data.Nat.≟ n
+rp-h4 {st} {n} eq | no ¬p | yes p = eq
+rp-h4 {st} {n} eq | no ¬p | no ¬p₁ = ⊥-elim (¬p₁ refl)
+
+rp-h5 : {n : ℕ} →
   st ≡ ⟦ makeInstruction n ⟧i st →
   ⟦ v[ 0F ] g[ Const n ] ⟧e st ≡ ⟦ v[ 0F ] g[ Const (suc n) ] ⟧e st
-rp-h4 {st} {n} eq = rp-h5 {st} (cong (λ z → (proj₂ (z 0F) n)) eq)
--- rp-h4 {st} {n} eq = rp-h5 {st} (cong (_$ n) (cong (_$ 0F) eq))
+rp-h5 {st} {n} eq = rp-h4 {st} (cong (λ z → (proj₂ (z 0F) n)) eq)
+-- rp-h5 {st} {n} eq = rp-h4 {st} (cong (_$ n) (cong (_$ 0F) eq))
 
 resultProof : {n : ℕ} →
   st ≡ ⟦ makePredicate n , [ makeInstruction n ] ⟧cb st →
   ⟦ Ordered' n ⟧a st
-resultProof {st} {n} fp with (ci-helper {st} {makePredicate n} fp)
+resultProof {st} {n} fp with (cb-helper {st} {makePredicate n} fp)
 resultProof {st} {n} fp | inj₁ x with (≰⇒> x)
 resultProof {st} {n} fp | inj₁ x | s≤s y = y
-resultProof {st} {n} fp | inj₂ y = ≤-reflexive (rp-h4 y)
+resultProof {st} {n} fp | inj₂ y = ≤-reflexive (rp-h5 y)
 
 resultProof-n : {n : ℕ} → φ[ bubbleSort n ] ⇛ ⟦ Ordered n ⟧a
 resultProof-n {zero} {st} [] = tt

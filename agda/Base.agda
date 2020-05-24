@@ -441,6 +441,7 @@ module Environment (varCount : ℕ) (varTypes : Fin varCount → Types) where
 
   ⟦_⟧c : Predicate → Condition
   ⟦ p ⟧c st = ⌊ ⟦ p ⟧d st ⌋
+  -- ⟦ p ⟧c st = isYes (⟦ p ⟧d st)
 
   assertionDecidability : {P : Predicate} → {st : State} → ((¬ ⟦ P ⟧a st) ⊎ (⟦ P ⟧a st))
   assertionDecidability {P} {st} with (⟦ P ⟧d st)

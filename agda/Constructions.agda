@@ -24,7 +24,7 @@ module Constructions (varCount : ℕ) (varTypes : Fin varCount → Base.Types) w
   open module StatementsInstance = Statements varCount varTypes
 
   variable
-    S1 S2 : ParallelProgram
+    S₁ S₂ : ParallelProgram
 
   private
     infixr 0 _↔_
@@ -37,24 +37,28 @@ module Constructions (varCount : ℕ) (varTypes : Fin varCount → Base.Types) w
   -- Union : (a b : ParallelProgram) → {s₀eq : proj₁ a ≡ proj₁ b} → ParallelProgram
   -- Union (a₀ , as) (b₀ , bs) = (a₀ , as ++ bs)
 
-  Union : (a b : ParallelProgram) → ParallelProgram
-  Union a b = (a ++ b)
+  Union : (S₁ S₂ : ParallelProgram) → ParallelProgram
+  Union S₁ S₂ = (S₁ ++ S₂)
 
-  ▷-Union-to : (P ▷[ S1 ] Q × P ▷[ S2 ] Q) → (P ▷[ Union S1 S2 ] Q)
-  ▷-Union-to {S1 = []} (▷s1 , ▷s2) = ▷s2
-  ▷-Union-to {S1 = _ ∷ _} (▷s1 , ▷s2) (p , ⌝q) with ▷s1 (p , ⌝q)
-  ▷-Union-to {S1 = _ ∷ _} (▷s1 , ▷s2) (p , ⌝q) | px ∷ x =
-    px ∷ ▷-Union-to (lessUnless ▷s1 , ▷s2) (p , ⌝q)
+  infixr 4 _∪_
+  _∪_ : (S₁ S₂ : ParallelProgram) → ParallelProgram
+  S₁ ∪ S₂ = Union S₁ S₂
 
-  ▷-Union-from-1 : (P ▷[ Union S1 S2 ] Q) → (P ▷[ S1 ] Q)
-  ▷-Union-from-1 {S1 = []} ▷u = const []
-  ▷-Union-from-1 {S1 = _ ∷ _} ▷u (p , ⌝q) with ▷u (p , ⌝q)
-  ▷-Union-from-1 {S1 = _ ∷ _} ▷u (p , ⌝q) | px ∷ x =
+  ▷-Union-to : (P ▷[ S₁ ] Q × P ▷[ S₂ ] Q) → (P ▷[ S₁ ∪ S₂ ] Q)
+  ▷-Union-to {S₁ = []} (▷s₁ , ▷s₂) = ▷s₂
+  ▷-Union-to {S₁ = _ ∷ _} (▷s₁ , ▷s₂) (p , ⌝q) with ▷s₁ (p , ⌝q)
+  ▷-Union-to {S₁ = _ ∷ _} (▷s₁ , ▷s₂) (p , ⌝q) | px ∷ x =
+    px ∷ ▷-Union-to (lessUnless ▷s₁ , ▷s₂) (p , ⌝q)
+
+  ▷-Union-from-1 : (P ▷[ S₁ ∪ S₂ ] Q) → (P ▷[ S₁ ] Q)
+  ▷-Union-from-1 {S₁ = []} ▷u = const []
+  ▷-Union-from-1 {S₁ = _ ∷ _} ▷u (p , ⌝q) with ▷u (p , ⌝q)
+  ▷-Union-from-1 {S₁ = _ ∷ _} ▷u (p , ⌝q) | px ∷ x =
     px ∷ ▷-Union-from-1 (lessUnless ▷u) (p , ⌝q)
 
-  ▷-Union-from-2 : (P ▷[ Union S1 S2 ] Q) → (P ▷[ S2 ] Q)
-  ▷-Union-from-2 {S1 = []} ▷u = ▷u
-  ▷-Union-from-2 {S1 = _ ∷ _} ▷u (p , ⌝q) = ▷-Union-from-2 (lessUnless ▷u) (p , ⌝q)
+  ▷-Union-from-2 : (P ▷[ S₁ ∪ S₂ ] Q) → (P ▷[ S₂ ] Q)
+  ▷-Union-from-2 {S₁ = []} ▷u = ▷u
+  ▷-Union-from-2 {S₁ = _ ∷ _} ▷u (p , ⌝q) = ▷-Union-from-2 (lessUnless ▷u) (p , ⌝q)
 
   func-times-distr : {X : Set} → {A B C : X → Set} → ({x : X} → A x → (B x × C x)) → (({x : X} → A x → B x) × ({x : X} → A x → C x))
   func-times-distr f = ((λ a → proj₁ (f a)) , (λ a → proj₂ (f a)))
@@ -62,18 +66,18 @@ module Constructions (varCount : ℕ) (varTypes : Fin varCount → Base.Types) w
   func-times-distr-imp : {X : Set} → {A B C : X → Set} → ({x : X} → A x → (B x × C x)) → (({x : X} → A x → B x) × ({x : X} → A x → C x))
   func-times-distr-imp f = ((λ a → proj₁ (f a)) , (λ a → proj₂ (f a)))
 
-  -- ▷-Union-from : (P ▷[ Union S1 S2 ] Q) → (P ▷[ S1 ] Q × P ▷[ S2 ] Q)
-  -- ▷-Union-from {S1 = []} ▷u = ((const []) , ▷u)
-  -- ▷-Union-from {S1 = _ ∷ _} ▷u =
+  -- ▷-Union-from : (P ▷[ Union S₁ S₂ ] Q) → (P ▷[ S₁ ] Q × P ▷[ S₂ ] Q)
+  -- ▷-Union-from {S₁ = []} ▷u = ((const []) , ▷u)
+  -- ▷-Union-from {S₁ = _ ∷ _} ▷u =
   --   func-times-distr λ { (p , ⌝q) → {! with ...!} } -- (λ x₁ → {!!}) , (λ x₁ → {!!}) -- func-times {!!} {!!}
 
   -- func-times : {A B C : Set} → ((A → B) × (A → C)) → A → (B × C)
   -- func-times (f , g) a = (f a , g a)
 
-  -- ▷-Union-from : (s₀eq : proj₁ S1 ≡ proj₁ S2) → (P ▷[ Union S1 S2 ] Q) → (P ▷[ S1 ] Q × P ▷[ S2 ] Q)
+  -- ▷-Union-from : (s₀eq : proj₁ S₁ ≡ proj₁ S₂) → (P ▷[ Union S₁ S₂ ] Q) → (P ▷[ S₁ ] Q × P ▷[ S₂ ] Q)
   -- ▷-Union-from refl = λ x → {!!} , {!!}
 
-  ▷-Union : (P ▷[ Union S1 S2 ] Q) ↔ (P ▷[ S1 ] Q × P ▷[ S2 ] Q)
+  ▷-Union : (P ▷[ S₁ ∪ S₂ ] Q) ↔ (P ▷[ S₁ ] Q × P ▷[ S₂ ] Q)
   ▷-Union = (λ x → ((▷-Union-from-1 x) , (▷-Union-from-2 x))) , ▷-Union-to
 
 -- 1 ≡ 2 ↔ 2 ≡ 1
