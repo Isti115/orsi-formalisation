@@ -443,10 +443,10 @@ module Environment (varCount : ℕ) (varTypes : Fin varCount → Types) where
   ⟦ p ⟧c st = ⌊ ⟦ p ⟧d st ⌋
   -- ⟦ p ⟧c st = isYes (⟦ p ⟧d st)
 
-  assertionDecidability : {P : Predicate} → {st : State} → ((¬ ⟦ P ⟧a st) ⊎ (⟦ P ⟧a st))
-  assertionDecidability {P} {st} with (⟦ P ⟧d st)
-  assertionDecidability {P} {st} | yes p = inj₂ p
-  assertionDecidability {P} {st} | no ¬p = inj₁ ¬p
+  assertionDecidability : (P : Predicate) → {st : State} → ((¬ ⟦ P ⟧a st) ⊎ (⟦ P ⟧a st))
+  assertionDecidability (P) {st} with (⟦ P ⟧d st)
+  assertionDecidability (P) {st} | yes p = inj₂ p
+  assertionDecidability (P) {st} | no ¬p = inj₁ ¬p
 
   --
 

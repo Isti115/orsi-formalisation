@@ -45,7 +45,7 @@ module Statements (varCount : ℕ) (varTypes : Fin varCount → Types) where
   -- open ProgramInstance
 
   variable
-    P P₁ Q Q₁ R V : Predicate
+    P P₁ Q Q₁ R V K : Predicate
     A B : Assertion
     C D : Condition
     W X Y Z : Set
@@ -267,7 +267,7 @@ module Statements (varCount : ℕ) (varTypes : Fin varCount → Types) where
   notOrToAndNotNot ¬_p∨q_ = ((¬_p∨q_ ∘ inj₁) , (¬_p∨q_ ∘ inj₂))
 
   notAndToOrNotNot : ⌝ (P △ Q) ⇒ (⌝ P) ▽ (⌝ Q)
-  notAndToOrNotNot {st = st} ¬_p∧q_ with assertionDecidability {st = st}
+  notAndToOrNotNot {P} ¬_p∧q_ with assertionDecidability P
   notAndToOrNotNot ¬_p∧q_ | inj₁ ¬p = inj₁ ¬p
   notAndToOrNotNot ¬_p∧q_ | inj₂ p = inj₂ (λ q → ¬_p∧q_ (p , q))
 
@@ -424,6 +424,39 @@ module Statements (varCount : ℕ) (varTypes : Fin varCount → Types) where
       ∷ (▷-proof prfs (p , ⌝q))
 
   --
+
+  Stable : ParallelProgram → Predicate → Statement
+  Stable S P = P ▷[ S ] FALSE
+
+  -- allImplies : {A : Set} → {f g : A → Set} → (∀ a → f a → g a) → {as : List A} → All f as → All g as
+  -- allImplies f→g {as = []} allf = []
+  -- allImplies f→g {as = a ∷ as} (fa ∷ allf) = f→g a fa ∷ allImplies f→g allf
+
+  allImplies2 : {A : Set} → {f g h : A → Set} → ({a : A} → f a → g a → h a) → {as : List A} → All f as → All g as → All h as
+  allImplies2 f→g→h [] [] = []
+  allImplies2 f→g→h (px ∷ allf) (px₁ ∷ allg) = f→g→h px px₁ ∷ allImplies2 f→g→h allf allg
+
+  intersectUnlessWithStable : Stable S K → P ▷[ S ] Q → (P △ K) ▷[ S ] (Q △ K)
+  intersectUnlessWithStable {S = []} _ _ _ = []
+  intersectUnlessWithStable {S = cb ∷ cbs}
+    {Q = Q} stable p▷[s]q {st = st} ((p , k) , ⌝q△k) with assertionDecidability Q
+  ... | inj₁ ⌝q with (p▷[s]q (p , ⌝q)) | (stable (k , id))
+  ...   | ∀p▽q | ks = allImplies2
+    (λ
+      { (inj₁ p) (inj₁ k) → inj₁ (p , k)
+      ; (inj₂ q) (inj₁ k) → inj₂ (q , k)
+      }
+    )
+    ∀p▽q ks
+  intersectUnlessWithStable _ _ ((p , k) , ⌝q△k) | inj₂ q = ⊥-elim (⌝q△k (q , k))
+
+  -- intersectUnlessWithStable : Stable S K → P ▷[ S ] Q → (P △ K) ▷[ S ] (Q △ K)
+  -- intersectUnlessWithStable {Q = Q} stable p▷[s]q {st = st} ((p , k) , ⌝q△k) with assertionDecidability Q {st}
+  -- intersectUnlessWithStable {Q = Q} stable p▷[s]q {st = st} ((p , k) , ⌝q△k) | inj₁ ⌝q with (p▷[s]q (p , ⌝q))
+  -- intersectUnlessWithStable {S = []} stable p▷[s]q ((p , k) , ⌝q△k) | inj₁ ⌝q | ∀p▽q = []
+  -- intersectUnlessWithStable {S = cb ∷ cbs} stable p▷[s]q ((p , k) , ⌝q△k) | inj₁ ⌝q | ∀p▽q with (stable (k , id))
+  -- ... | ks = allImplies2 (λ { (inj₁ p) (inj₁ k) → inj₁ (p , k) ; (inj₂ q) (inj₁ k) → inj₂ (q , k) }) ∀p▽q ks
+  -- intersectUnlessWithStable stable p▷[s]q ((p , k) , ⌝q△k) | inj₂ q = ⊥-elim (⌝q△k (q , k))
 
   -- "There exists a conditional instruction that moves from P△⌝Q to Q."
   Progress : ParallelProgram → Predicate → Predicate → Statement
@@ -730,7 +763,9 @@ module Statements (varCount : ℕ) (varTypes : Fin varCount → Types) where
   --     (⇐⇒Symmetric andDistributiveRight)
   --     (Disjunctivity (PSP (p₁↪[s]q , r▷[s]v) , PSP (p₂↪[s]q , r▷[s]v)))
 
-  PSP (FromEnsures ensures , r▷[s]v) = FromEnsures (pspFromEnsures ensures r▷[s]v)
+  PSP (FromEnsures ensures , r▷[s]v) =
+    FromEnsures (pspFromEnsures ensures r▷[s]v)
+
   -- PSP (Transitivity (p↪[s]p₁ , p₁↪[s]q) , r▷[s]v) = pspFromTransitivity transitivity r▷[s]v
   -- PSP (Disjunctivity disjunctivity , r▷[s]v) = pspFromDisjunctivity disjunctivity r▷[s]v
 
